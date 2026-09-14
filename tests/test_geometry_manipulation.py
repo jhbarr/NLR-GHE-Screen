@@ -1,9 +1,9 @@
-import pytest
 from shapely.geometry import Polygon, MultiPolygon
 import geopandas as gpd
+import pandas as pd
 from geopandas.testing import assert_geodataframe_equal
 
-from scripts.geometry_manipulation import create_overlapping_groups, combine_geometries
+from scripts.geometry_manipulation import create_overlapping_groups, combine_geometries, classify_geometry
 
 class TestGeometryOverlap:
     """
@@ -219,3 +219,38 @@ class TestGeometryCombination:
             result_df,
             check_like=True
         )
+
+class TestClassifyGeometry:
+    """
+    These test cases verify that geometries are being correctly attributed to the correct category 
+    for exclusion and geometry merging purposes
+    """
+
+    def test_category_assignment(self):
+        """
+        Check that green space, parking and protected areas are all being assigned correctly to a category
+        """
+        test_data = {
+            "name": ["Park1", "", "Protected Park 1", "Space"],
+            "landuse": ["recreation", "", "recreation_ground", ""],
+            "boundary": ["", "", "national_park", ""],
+            "amenity": ["", "parking", "", ""],
+        }
+
+        expected_data = {
+            "name": ["Park1", "", "Protected Park 1", "Space"],
+            "landuse": ["recreation", "", "recreation_ground", ""],
+            "boundary": ["", "", "national_park", ""],
+            "amenity": ["", "parking", "", ""],
+            "_category": ["green_space", "parking", "protected", "other"]
+        }
+
+        test_df = pd.DataFrame(test_data)
+        expected_df = pd.DataFrame(expected_data)
+        test_df['_category'] = test_df.apply(classify_geometry, axis=1)
+
+        print(test_df)
+        print()
+        print(expected_df)
+
+        assert test_df.equals(expected_df)

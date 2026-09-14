@@ -139,15 +139,30 @@ def classify_geometry(row):
         category (Str): A string categorizing the row 
     """
     boundary = row.get('boundary')
-    boundary_tags = ['protected_area', 'forest', 'forest_compartment', 'national_park', 'aboriginal_lands']
+    boundary_tags = [
+        'protected_area', 
+        'forest', 
+        'forest_compartment', 
+        'national_park', 
+        'aboriginal_lands'
+    ]
     if pd.notna(boundary) and boundary in boundary_tags:
         return 'protected'
 
     amenity = row.get('amenity')
-    if pd.notna(amenity) and amenity == 'parking':
+    amenity_tags = [
+        'parking'
+    ]
+    if pd.notna(amenity) and amenity in amenity_tags:
         return 'parking'
 
-    if pd.notna(row.get('leisure')) or pd.notna(row.get('landuse')) or pd.notna(row.get('natural')):
+    if (
+        pd.notna(row.get('leisure')) and str(row.get('leisure')).strip()
+    ) or (
+        pd.notna(row.get('landuse')) and str(row.get('landuse')).strip()
+    ) or (
+        pd.notna(row.get('natural')) and str(row.get('natural')).strip()
+    ):
         return 'green_space'
 
     return 'other'
