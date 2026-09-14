@@ -7,7 +7,7 @@ from parse_args import parse_arguments
 from osm_api import get_overpass
 from parse_geojson import parse_api_response
 from validate_geojson import validate_geojson
-from geometry_manipulation import combine_geometries
+from geometry_manipulation import combine_geometries, classify_geometry
 
 def aggregate_metadata(df):
     """
@@ -19,21 +19,38 @@ def aggregate_metadata(df):
     Returns:
         metadata (dict): Dictionary containing all descriptive metadata
     """
-    projected_gdf = df.to_crs(epsg=3035)
-    total_green_space = projected_gdf.area.sum()
+    categories = ['green_space', 'parking']
 
-    if 'boundary' in projected_gdf.columns:
-        public_green_space = projected_gdf[projected_gdf['boundary'] == ''].area.sum()
-        non_public_green_space = projected_gdf[projected_gdf['boundary'] == 'protected_area'].area.sum()
-    else:
-        public_green_space = total_green_space
-        non_public_green_space = 0        
+    # Add the categories to the rows to which they apply
+    df = df.copy()
+    df['_category'] = df.apply(classify_geometry, axis=1)
 
-    metadata = {
-        "total green space (m^2)": round(total_green_space, 2),
-        "total green space - public (m^2)": round(public_green_space, 2),
-        "total green space - non-public (m^2)": round(non_public_green_space, 2)
-    }
+    metadata = {}
+
+    for category in categories:
+        # Get all of the row entries that were assigned this category 
+        subset = df[df['_category'] == category].drop(columns='_category')
+        if subset.empty:
+            continue
+
+        subset = subset.to_crs(epsg=3857)
+        metadata["total " + category] = subset.area.sum()
+
+    # projected_gdf = df.to_crs(epsg=3035)
+    # total_green_space = projected_gdf.area.sum()
+
+    # if 'boundary' in projected_gdf.columns:
+    #     public_green_space = projected_gdf[projected_gdf['boundary'] == ''].area.sum()
+    #     non_public_green_space = projected_gdf[projected_gdf['boundary'] == 'protected_area'].area.sum()
+    # else:
+    #     public_green_space = total_green_space
+    #     non_public_green_space = 0        
+
+    # metadata = {
+    #     "total green space (m^2)": round(total_green_space, 2),
+    #     "total green space - public (m^2)": round(public_green_space, 2),
+    #     "total green space - non-public (m^2)": round(non_public_green_space, 2)
+    # }
 
     return metadata
 

@@ -30,14 +30,17 @@ def get_overpass(bbox):
     [out:json][timeout:25];
 
     (
-    way["leisure"="park"]({south},{west},{north},{east});
-    relation["leisure"="park"]({south},{west},{north},{east});
+    way["leisure"~"park|dog_park"]({south},{west},{north},{east})
+    relation["leisure"~"park|dog_park"]({south},{west},{north},{east});
 
-    way["landuse"="recreation_ground"]({south},{west},{north},{east});
-    relation["landuse"="recreation_ground"]({south},{west},{north},{east});
+    way["landuse"~"recreation_ground|meadow|grass|farmland"]({south},{west},{north},{east});
+    relation["landuse"~"recreation_ground|meadow|grass|farmland"]({south},{west},{north},{east});
 
     way["natural"~"wood|grassland|scrub|heath|wetland"]({south},{west},{north},{east});
     relation["natural"~"wood|grassland|scrub|heath|wetland"]({south},{west},{north},{east});
+
+    way["amenity"="parking"]({south},{west},{north},{east});
+    relation["amenity"="parking"]({south},{west},{north},{east});
     );
 
     out geom;

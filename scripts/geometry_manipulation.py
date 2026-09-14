@@ -139,7 +139,8 @@ def classify_geometry(row):
         category (Str): A string categorizing the row 
     """
     boundary = row.get('boundary')
-    if pd.notna(boundary) and boundary == 'protected_area':
+    boundary_tags = ['protected_area', 'forest', 'forest_compartment', 'national_park', 'aboriginal_lands']
+    if pd.notna(boundary) and boundary in boundary_tags:
         return 'protected'
 
     amenity = row.get('amenity')
@@ -173,6 +174,7 @@ def combine_geometries(df):
     # later categories before those are combined, so overlapping polygons
     # of different types never get merged into one another.
     priority = ['protected', 'parking', 'green_space', 'other']
+    excluded_categories = ['protected']
 
     # Add the categories to the rows to which they apply
     df = df.copy()
@@ -198,8 +200,9 @@ def combine_geometries(df):
 
         # Within the current category subset
         # merge the geometries that overlap with each other 
-        subset = combine(subset)
-        combined_parts.append(subset)
+        if category not in excluded_categories:
+            subset = combine(subset)
+            combined_parts.append(subset)
 
         # Create / expand the large Multipolygon that describes all of the geometry area already 
         # claimed by higher priority category geometries
@@ -211,7 +214,7 @@ def combine_geometries(df):
             else gpd.overlay(claimed, category_union, how="union")
         )
 
-    
+    # If nothing was combined
     if not combined_parts:
         return gpd.GeoDataFrame(columns=df.columns.drop('_category'), crs=df.crs)
 
