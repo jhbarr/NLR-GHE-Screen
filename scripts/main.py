@@ -36,22 +36,6 @@ def aggregate_metadata(df):
         subset = subset.to_crs(epsg=3857)
         metadata["total " + category] = subset.area.sum()
 
-    # projected_gdf = df.to_crs(epsg=3035)
-    # total_green_space = projected_gdf.area.sum()
-
-    # if 'boundary' in projected_gdf.columns:
-    #     public_green_space = projected_gdf[projected_gdf['boundary'] == ''].area.sum()
-    #     non_public_green_space = projected_gdf[projected_gdf['boundary'] == 'protected_area'].area.sum()
-    # else:
-    #     public_green_space = total_green_space
-    #     non_public_green_space = 0        
-
-    # metadata = {
-    #     "total green space (m^2)": round(total_green_space, 2),
-    #     "total green space - public (m^2)": round(public_green_space, 2),
-    #     "total green space - non-public (m^2)": round(non_public_green_space, 2)
-    # }
-
     return metadata
 
 def main(args):
