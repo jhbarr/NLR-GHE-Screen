@@ -16,7 +16,7 @@ class TestMockOverpassAPI:
         Overpass API response.
         """
 
-        file_path = Path(__file__).parent / "Data" / "mock_overpass_query.json"
+        file_path = Path(__file__).parent / "data" / "mock_overpass_query.json"
 
         with open(file_path, 'r', encoding='utf-8') as file:
             data = json.load(file)
