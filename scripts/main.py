@@ -2,6 +2,7 @@ import sys
 import json
 from pathlib import Path
 from jsonschema import ValidationError
+from pyogrio.errors import DataSourceError
 
 from parse_args import parse_arguments
 from osm_api import get_overpass
@@ -51,6 +52,8 @@ def main(args):
         bbox = parse_arguments(args)
         # ** Raises ValueError - coordinates not in correct CRS **
         # ** Raises SystemExit - if there are missing arguments **
+        # ** Raises FileNotFoundError - if the input file cannot be found ** 
+        # ** Raises DataSourceError - if input file is not valid spatial file ** 
 
         file_path = Path(__file__).parent.parent / "Tests" / "Data" / "golden_query.json"
         with open(file_path, 'r', encoding='utf-8') as file:
@@ -97,6 +100,12 @@ def main(args):
 
     except TypeError as exec:
         print(f"Error - {exec}")
+
+    except FileNotFoundError as exec:
+            print(f"Error - {exec}")
+
+    except DataSourceError as exec:
+                print(f"Error - {exec}")
 
 # Execute the program
 if __name__ == '__main__':

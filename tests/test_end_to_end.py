@@ -21,6 +21,7 @@ class TestEnd2End:
         # Create test argument bounding box
         # Coordinates for Golden, CO
         test_args = [
+            '--bbox',
             "39.710000",
             "-105.250000",
             "39.790000",
@@ -70,6 +71,7 @@ class TestEnd2End:
         Test the end to end flow using a live API call
         """
         test_args = [
+            '--bbox',
             "39.710000",
             "-105.250000",
             "39.790000",

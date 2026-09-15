@@ -1,6 +1,7 @@
 import argparse
-import sys
+import geopandas as gpd
 import pyproj
+from pathlib import Path
 
 from pyproj import CRS
 from shapely.geometry import box
@@ -73,39 +74,72 @@ def parse_arguments(args):
     
     Raises:
         ValueError: If the bbox coordinates are not in the correct CRS (EPSG:4326)
-        SystemExit: IF the arguments are in incorrect form or if there are arguments missing
+        SystemExit: If the arguments are in incorrect form or if there are arguments missing
+        FileNotFound: If the user's input file cannot be found
+        DataSourceError: If the user's input file is is not a proper spatial file
     """
-    print("\n---------------------------")
-    print("Checking inputted coordinate values")
-
     parser = argparse.ArgumentParser(description="Program CLI")
+    group = parser.add_mutually_exclusive_group(required=True)
 
-    # Ensure that the coordinates are input and cast correctly
-    # South West North East
-    parser.add_argument('south_coordinate', type=float) # y_min
-    parser.add_argument('west_coordinate', type=float) # x_min
-    parser.add_argument('north_coordinate', type=float) # y_max
-    parser.add_argument('east_coordinate', type=float) # x_max
+    # Describe the format in which the user can input a series of coords
+    # using the --bbox flag
+    group.add_argument(
+        "--bbox",
+        nargs=4,
+        type=float,
+        metavar=("south", "west", "north", "east"),
+        help="Bounding box coordinates: south west north east"
+    )
+
+    # Describe the format in which the user can input an URBANopt GeoJSON file
+    # using the --file flag
+    group.add_argument(
+    "--file",
+    type=str,
+    help="Path to a file containing geometries"
+    )
 
     # The parsed arguments that are cast to the correct types
     # They are accessed via dot notation
     parsed = parser.parse_args(args)
 
-    # Create a bounding box from the inputted coordinates
-    bbox = (
-        parsed.south_coordinate,
-        parsed.west_coordinate,
-        parsed.north_coordinate,
-        parsed.east_coordinate
-    )
+    if parsed.bbox is not None:
+        print("\n---------------------------")
+        print("Checking inputted coordinate values")
 
-    # Check that the coordinates are in the correct form and CRS
-    verify_bbox_coordinates(bbox=bbox)
+        # Retrieve the bounding box coordinates from the parsed arguments
+        bbox = tuple(parsed.bbox)
 
-    # Check that the bounding box does not exceed maximum square footage
-    verify_bbox_size(bbox=bbox)
+        verify_bbox_coordinates(bbox=bbox)
+        verify_bbox_size(bbox=bbox)
 
-    print("Success - Valid coordinates")
-    print("---------------------------")
+        print("Success - Valid coordinates")
+        print("---------------------------")
 
-    return bbox
+        return bbox
+
+    elif parsed.file is not None:
+        print("\n---------------------------")
+        print("Checking inputted file")
+
+        # Ensure that file exists
+        file_path = Path(parsed.file)
+        if not file_path.is_file():
+            raise FileNotFoundError(f"Input file does not exist: {parsed.file}")
+
+        # Open the proviided file 
+        # And check that it meets the URBANopt GeoJSON standards
+        gdf = gpd.read_file(parsed.file) # Will raise DataSourceError if file is not proper spatial file
+        bounding_polygon = gdf.geometry.union_all().convex_hull
+
+        # Retrieve the bounding box coordinates that encompass all buildings
+        west, south, east, north = bounding_polygon.bounds
+        bbox = (south, west, north, east)
+
+        verify_bbox_coordinates(bbox=bbox)
+        verify_bbox_size(bbox=bbox)
+
+        print("Success - Valid file")
+        print("---------------------------")
+
+        return bbox
