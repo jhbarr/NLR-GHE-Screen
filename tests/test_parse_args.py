@@ -3,6 +3,12 @@ from pyogrio.errors import DataSourceError
 from scripts.parse_args import parse_arguments
 from pathlib import Path
 
+
+
+# ---------------------------------------------------------------------------
+# Test - Bounding Box Input
+# ---------------------------------------------------------------------------
+
 class TestBBOXCommandLineArgs:
     """
     Test cases for the handling of command line arguments in the program
@@ -57,6 +63,12 @@ class TestBBOXCommandLineArgs:
     def test_invalid_bounding_box_crs(self, test_args):
         with pytest.raises(ValueError):
             parse_arguments(test_args)
+
+
+
+# ---------------------------------------------------------------------------
+# Test - File Input
+# ---------------------------------------------------------------------------
 
 class TestFileCommandLineArgs:
     """

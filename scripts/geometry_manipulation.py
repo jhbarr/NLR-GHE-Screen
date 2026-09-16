@@ -86,7 +86,6 @@ def combine(df):
 
         # Create a new row for the final dataframe
         row = {
-            # "source_count": len(group_df), # Number of sub-geometries to create the combined one
             "geometry": combined_geometry,
         }
 
@@ -118,9 +117,6 @@ def combine(df):
         combined_rows,
         crs=df.crs
     )
-
-    # Calculate area of the geometries
-    # calculate_area(df=combined)
 
     return combined
 
@@ -218,8 +214,6 @@ def combine_geometries(df):
         if category not in excluded_categories:
             subset = combine(subset)
             combined_parts.append(subset)
-        else:
-            continue
 
         # Create / expand the large Multipolygon that describes all of the geometry area already 
         # claimed by higher priority category geometries

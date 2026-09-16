@@ -3,7 +3,17 @@ import geopandas as gpd
 import pandas as pd
 from geopandas.testing import assert_geodataframe_equal
 
-from scripts.geometry_manipulation import create_overlapping_groups, combine_geometries, classify_geometry
+from scripts.geometry_manipulation import (
+    create_overlapping_groups, 
+    combine_geometries, 
+    classify_geometry
+)
+
+
+
+# ---------------------------------------------------------------------------
+# Test - Combine Overlapping Geometries 
+# ---------------------------------------------------------------------------
 
 class TestGeometryOverlap:
     """
@@ -122,6 +132,11 @@ class TestGeometryOverlap:
         assert len(groups) == 2
 
 
+
+# ---------------------------------------------------------------------------
+# Test - Dataframe consolidation of overlapping geometries
+# ---------------------------------------------------------------------------
+
 class TestGeometryCombination:
     """
     This class verifies that the behavior of the procedure handling combining geometries into condensed
@@ -219,6 +234,12 @@ class TestGeometryCombination:
             result_df,
             check_like=True
         )
+
+
+
+# ---------------------------------------------------------------------------
+# Test - Attribute classification
+# ---------------------------------------------------------------------------
 
 class TestClassifyGeometry:
     """

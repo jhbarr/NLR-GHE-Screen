@@ -2,7 +2,12 @@ import geopandas as gpd
 from shapely.geometry import Polygon, LineString, MultiPolygon
 from shapely.ops import unary_union, polygonize
 
-def parse_element_geometry(element):
+
+# ---------------------------------------------------------------------------
+# Create geometries + parse API response 
+# ---------------------------------------------------------------------------
+
+def create_geometry_object(element):
     """
     Converts an OSM way or relation into a Shapely geometry that can be input to a Geopandas Dataframe
 
@@ -97,16 +102,15 @@ def parse_api_response(data):
     rows = []
     for element in elements:
 
-        # Parse out the geometry for that element 
-        geometry = parse_element_geometry(element)
-        # ** Raises TypeError - If an unknown geometry element if given ** 
+        # Create a geometry object that can be recognized by Geopandas
+        # from the provided coordinates in the Overpass API JSON response body
+        geometry = create_geometry_object(element)
 
         if geometry is None:
             continue
 
         # Create a dataframe row entry based on the elements features 
         row = {
-            # "id": str(element["id"]), # Overpass API always has IDs for every element
             **element.get("tags", {}),
             "geometry": geometry # Overpass API always has geometry descriptions of elements
         }
@@ -123,7 +127,6 @@ def parse_api_response(data):
     )
 
     desired_attributes = [
-        # 'id', 
         'name', 
         'landuse', 
         'leisure', 
