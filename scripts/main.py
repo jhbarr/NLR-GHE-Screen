@@ -55,7 +55,7 @@ def main(args):
         # ** Raises FileNotFoundError - if the input file cannot be found ** 
         # ** Raises DataSourceError - if input file is not valid spatial file ** 
 
-        file_path = Path(__file__).parent.parent / "Tests" / "Data" / "seattle_query.json"
+        file_path = Path(__file__).parent.parent / "tests" / "data" / "golden_query.json"
         with open(file_path, 'r', encoding='utf-8') as file:
             result = json.load(file)
 
