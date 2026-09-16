@@ -239,4 +239,7 @@ def combine_geometries(df):
     result = pd.concat(combined_parts, ignore_index=True)
     result = gpd.GeoDataFrame(result, geometry='geometry', crs=df.crs)
 
+    print("Combination Successful")
+    print("---------------------------")
+
     return result
