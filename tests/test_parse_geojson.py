@@ -2,7 +2,16 @@ from pathlib import Path
 import pytest
 import json
 
-from scripts.parse_geojson import parse_api_response, parse_element_geometry
+from scripts.parse_geojson import (
+    parse_api_response, 
+    create_geometry_object
+)
+
+
+
+# ---------------------------------------------------------------------------
+# Test - Create geometry from JSON
+# ---------------------------------------------------------------------------
 
 class TestGeometryParse:
     """
@@ -20,7 +29,7 @@ class TestGeometryParse:
 
         # Run the parsing function on a known way geometry
         way_geometry = test_data['elements'][0]
-        geometry = parse_element_geometry(way_geometry)
+        geometry = create_geometry_object(way_geometry)
 
         assert geometry != None
 
@@ -35,7 +44,7 @@ class TestGeometryParse:
 
             # Run the parsing function on a known relation geometry
             relation_geometry = test_data['elements'][1]
-            geometry = parse_element_geometry(relation_geometry)
+            geometry = create_geometry_object(relation_geometry)
 
             assert geometry != None
 
@@ -51,9 +60,13 @@ class TestGeometryParse:
         }
 
         with pytest.raises(TypeError):
-             parse_element_geometry(test_data)
+             create_geometry_object(test_data)
 
 
+
+# ---------------------------------------------------------------------------
+# Test - API Parse
+# ---------------------------------------------------------------------------
 
 class TestAPIParse:
     """

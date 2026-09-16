@@ -7,6 +7,10 @@ from pyproj import CRS
 from shapely.geometry import box
 from shapely.ops import transform
 
+# ---------------------------------------------------------------------------
+# Verification 
+# ---------------------------------------------------------------------------
+
 def verify_bbox_coordinates(bbox):
     """
     Ensures that the coordinates in the provided bounding box are in the correct CRS
@@ -37,30 +41,10 @@ def verify_bbox_coordinates(bbox):
         raise ValueError("Invalid coordinates for EPSG:4326")
 
 
-def verify_bbox_size(bbox):
-    """
-    Ensures that the coordinates in the provided bounding box are in the correct CRS
-    And raises a ValueError if they are not
-    
-    Parameters:
-        bbox (Tuple[float]): A four float tuple of the form (lat_min, long_min, lat_max, long_max)
-    """
-    # Requires the form box(west, south, east, north)
-    geom = box(bbox[1], bbox[0], bbox[3], bbox[2])
 
-    # Automatically find the best UTM zone CRS for this location
-    # (This ensures accuracy by picking a metric projection native to the coordinates)
-    utm_crs = pyproj.CRS.from_string(f"+proj=utm +zone=10 +ellps=WGS84 +datum=WGS84 +units=m +no_defs") 
-
-    # Set up the transformation from EPSG:4326 to the UTM metric CRS
-    project = pyproj.Transformer.from_crs("EPSG:4326", utm_crs, always_xy=True).transform
-
-    # Transform the geometry and get the area
-    projected_geom = transform(project, geom)
-    area_in_sq_meters = projected_geom.area
-
-    return area_in_sq_meters
-    
+# ---------------------------------------------------------------------------
+# Argument Parsing 
+# ---------------------------------------------------------------------------  
         
 def parse_arguments(args):
     """
@@ -94,9 +78,9 @@ def parse_arguments(args):
     # Describe the format in which the user can input an URBANopt GeoJSON file
     # using the --file flag
     group.add_argument(
-    "--file",
-    type=str,
-    help="Path to a file containing geometries"
+        "--file",
+        type=str,
+        help="Path to a file containing geometries"
     )
 
     # The parsed arguments that are cast to the correct types
@@ -111,7 +95,6 @@ def parse_arguments(args):
         bbox = tuple(parsed.bbox)
 
         verify_bbox_coordinates(bbox=bbox)
-        verify_bbox_size(bbox=bbox)
 
         print("Success - Valid coordinates")
         print("---------------------------")
@@ -137,7 +120,6 @@ def parse_arguments(args):
         bbox = (south, west, north, east)
 
         verify_bbox_coordinates(bbox=bbox)
-        verify_bbox_size(bbox=bbox)
 
         print("Success - Valid file")
         print("---------------------------")

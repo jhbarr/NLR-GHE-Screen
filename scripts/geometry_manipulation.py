@@ -86,7 +86,6 @@ def combine(df):
 
         # Create a new row for the final dataframe
         row = {
-            # "source_count": len(group_df), # Number of sub-geometries to create the combined one
             "geometry": combined_geometry,
         }
 
@@ -118,9 +117,6 @@ def combine(df):
         combined_rows,
         crs=df.crs
     )
-
-    # Calculate area of the geometries
-    # calculate_area(df=combined)
 
     return combined
 
@@ -236,5 +232,8 @@ def combine_geometries(df):
     # Create the new dataframe of newly merged-by-category geometries
     result = pd.concat(combined_parts, ignore_index=True)
     result = gpd.GeoDataFrame(result, geometry='geometry', crs=df.crs)
+
+    print("Combination Successful")
+    print("---------------------------")
 
     return result

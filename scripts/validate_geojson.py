@@ -2,6 +2,11 @@ import json
 from jsonschema import validate
 from pathlib import Path
 
+
+# ---------------------------------------------------------------------------
+# GeoJSON Validation 
+# ---------------------------------------------------------------------------
+
 def validate_geojson(data, is_dataframe=False):
     """
     Takes in data in the form of a JSON object (dict) and validates that it correctly matches a preset

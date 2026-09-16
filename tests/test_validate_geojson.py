@@ -5,6 +5,12 @@ import geopandas as gpd
 
 from scripts.validate_geojson import validate_geojson
 
+
+
+# ---------------------------------------------------------------------------
+# Test - URBANopt GeoJSON Validation
+# ---------------------------------------------------------------------------
+
 class TestGeoJSONValidation:
     """
     This tests the functionality of validating whether data queried and constructed by the program
