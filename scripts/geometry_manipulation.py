@@ -218,6 +218,8 @@ def combine_geometries(df):
         if category not in excluded_categories:
             subset = combine(subset)
             combined_parts.append(subset)
+        else:
+            continue
 
         # Create / expand the large Multipolygon that describes all of the geometry area already 
         # claimed by higher priority category geometries
