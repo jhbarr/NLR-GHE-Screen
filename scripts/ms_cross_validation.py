@@ -92,7 +92,7 @@ def extract_quadkeys(bbox):
     for x in range(min_x, max_x + 1):
         for y in range(min_y, max_y + 1):
             quadkey = tile_to_quadkey(x, y, level=9)
-            quadkeys.append(quadkey[1:]) # ** may cause error later on **
+            quadkeys.append(quadkey[1:] if quadkey[0] == '0' else quadkey) # ** may cause error later on **
 
     print("Extracting quadkeys:", quadkeys)
 
@@ -120,7 +120,8 @@ def get_ms_building_data(quadkeys):
     links['QuadKey'] = links['QuadKey'].astype(str)
 
     selected_regions = links[
-        links['QuadKey'].isin(quadkeys)
+        (links['QuadKey'].isin(quadkeys)) &
+        (links['Location'] == 'UnitedStates')
     ]
 
     gdfs = []
@@ -180,44 +181,48 @@ def cross_validate_osm_spaces(bbox, osm_spaces):
         predicate='intersects'
     )
 
-    matches['osm_area'] = matches.geometry.area
-    matches['ms_area'] = matches['index_right'].map(
-        ms_buildings.geometry.area
-    )
-    matches['height'] = matches['properties'].apply(
-        lambda x: x.get('height', -1)
-    )
+    if len(matches) > 0:
+        matches['osm_area'] = matches.geometry.area
+        matches['ms_area'] = matches['index_right'].map(
+            ms_buildings.geometry.area
+        )
+        matches['height'] = matches['properties'].apply(
+            lambda x: x.get('height', -1)
+        )
 
-    matches['intersection_area'] = matches.apply(
-        lambda row: row.geometry.intersection(
-            ms_buildings.loc[row['index_right']].geometry
-        ).area,
-        axis=1
-    )
+        matches['intersection_area'] = matches.apply(
+            lambda row: row.geometry.intersection(
+                ms_buildings.loc[row['index_right']].geometry
+            ).area,
+            axis=1
+        )
 
-    matches["osm_overlap_pct"] = (
-        matches["intersection_area"] /
-        matches["osm_area"] * 100
-    )
+        matches["osm_overlap_pct"] = (
+            matches["intersection_area"] /
+            matches["osm_area"] * 100
+        )
 
-    matches["ms_overlap_pct"] = (
-        matches["intersection_area"] /
-        matches["ms_area"] * 100
-    )
+        matches["ms_overlap_pct"] = (
+            matches["intersection_area"] /
+            matches["ms_area"] * 100
+        )
 
-    best_matches = matches.loc[
-        matches.groupby(matches.index)["osm_overlap_pct"].idxmax()
-    ]
+        best_matches = matches.loc[
+            matches.groupby(matches.index)["osm_overlap_pct"].idxmax()
+        ]
 
-    best_matches = best_matches[
+        best_matches = best_matches[
         (
-            (best_matches["osm_overlap_pct"] >= 50) |
-            (best_matches['ms_overlap_pct'] >= 80) &
-            (best_matches['height'] > -1.0)
-        ) 
-    ]
+            (
+                (best_matches["osm_overlap_pct"] >= 50) |
+                (best_matches["ms_overlap_pct"] >= 80)
+            ) &
+            (best_matches["height"] > -1.0)
+        )
 
-    osm_spaces = osm_spaces.drop(best_matches.index.unique().to_list())
+        ]
+
+        osm_spaces = osm_spaces.drop(best_matches.index.unique().to_list())
 
     print("Cross Validation Successful")
     print("---------------------------")
