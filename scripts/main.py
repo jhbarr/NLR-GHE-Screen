@@ -11,6 +11,7 @@ from osm_api import get_overpass
 from parse_geojson import parse_api_response
 from validate_geojson import validate_geojson
 from geometry_manipulation import combine_geometries, classify_geometry
+from ms_cross_validation import cross_validate_osm_spaces
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +92,8 @@ def run(args):
     gdf = parse_api_response(data=result)
 
     validate_geojson(data=gdf, is_dataframe=True)
+
+    gdf = cross_validate_osm_spaces(bbox=bbox, osm_spaces=gdf)
 
     gdf = combine_geometries(df=gdf)
 
