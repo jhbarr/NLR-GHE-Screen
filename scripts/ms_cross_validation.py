@@ -167,7 +167,7 @@ def cross_validate_osm_spaces(bbox, osm_spaces):
 
     osm_spaces_crs = osm_spaces.crs
     osm_parking = osm_spaces[osm_spaces['amenity'] == 'parking'].copy()
-    osm_parking = osm_parking.to_crs("EPSG:26910")
+    osm_parking = osm_parking.to_crs(osm_spaces.estimate_utm_crs())
 
     quadkeys = extract_quadkeys(bbox=bbox)
     ms_buildings = get_ms_building_data(quadkeys=quadkeys)

@@ -33,6 +33,7 @@ def aggregate_metadata(df):
     # Add the categories to the rows to which they apply
     df = df.copy()
     df['_category'] = df.apply(classify_geometry, axis=1)
+    crs = df.estimate_utm_crs()
 
     metadata = {}
 
@@ -42,8 +43,8 @@ def aggregate_metadata(df):
         if subset.empty:
             continue
 
-        subset = subset.to_crs(epsg=3857)
-        metadata["total " + category] = subset.area.sum()
+        subset = subset.to_crs(crs)
+        metadata["total " + category] = f"{round(subset.area.sum() / 1_000_000, 2)} km^2"
 
     return metadata
 
@@ -93,9 +94,9 @@ def run(args):
 
     validate_geojson(data=gdf, is_dataframe=True)
 
-    gdf = cross_validate_osm_spaces(bbox=bbox, osm_spaces=gdf)
+    gdf = cross_validate_osm_spaces(bbox=bbox, osm_spaces=gdf) # ** Optional Step **
 
-    gdf = combine_geometries(df=gdf)
+    gdf = combine_geometries(df=gdf) # ** Optional Step **
 
     export_results(df=gdf, response=result)
 
