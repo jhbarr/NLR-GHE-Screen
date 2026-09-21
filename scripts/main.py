@@ -7,7 +7,7 @@ from pyogrio.errors import DataSourceError
 from osm_api import OverpassError
 
 from parse_args import parse_arguments
-from osm_api import get_overpass
+from osm_api import get_overpass, get_overpass_no_splitting
 from parse_geojson import parse_api_response
 from validate_geojson import validate_geojson
 from geometry_manipulation import combine_geometries, classify_geometry

@@ -1,10 +1,15 @@
 import time
 import requests
+import math
  
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
 DEFAULT_QUERY_TIMEOUT = 30
 HTTP_TIMEOUT_BUFFER = 5
+
+MAX_ELEMENTS_PER_QUERY = 3500 # Subject to change based on live results
+MAX_SPLIT_DEPTH = 4
+REQUEST_PAUSE = 1.0
 
 # ---------------------------------------------------------------------------
 # Exceptions
@@ -40,6 +45,10 @@ class OverpassBadQueryError(OverpassError):
  
 class OverpassConnectionError(OverpassError):
     """Network-level failure (DNS, connection refused, etc). Retry a few times."""
+
+
+class OverpassTimeoutError(OverpassError):
+    """If there is a network-level failure with the HTTP timing out before reaching Overpass API"""
 
 
 
@@ -102,7 +111,7 @@ def classify_and_raise(response):
 
 
 # ---------------------------------------------------------------------------
-# Query building + Execution
+# Query building + Query execution
 # ---------------------------------------------------------------------------
 
 def build_overpass_query(bbox, mode="data", query_timeout = DEFAULT_QUERY_TIMEOUT):
@@ -190,7 +199,7 @@ def run_overpass_query(query, query_timeout=DEFAULT_QUERY_TIMEOUT, max_retries=3
 
         except requests.exceptions.Timeout:
             # The HTTP client gave up before overpass responded at all
-            raise OverpassTooLargeError(
+            raise OverpassTimeoutError(
                 f"Request timed out client-side before overpass responded"
             )
 
@@ -211,7 +220,92 @@ def run_overpass_query(query, query_timeout=DEFAULT_QUERY_TIMEOUT, max_retries=3
 
 
 # ---------------------------------------------------------------------------
-# Convenience wrappers
+# Query splitting
+# ---------------------------------------------------------------------------
+
+def split_bbox(bbox):
+    """
+    Split a Overpass QL bounding box in half along its longer side
+
+    Parameters:
+        bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
+    
+    Returns:
+        Tuple[Tuple[float]]: Two coordinate bounding boxes in the form (lat_min, lon_min, lat_max, lon_max)
+    """
+    south, west, north, east = bbox
+
+    lat_span = north - south
+    lon_span = (east - west) * math.cos(math.radians((south + north) / 2))
+ 
+    if lat_span >= lon_span:
+        mid = (south + north) / 2
+        return (south, west, mid, east), (mid, west, north, east)
+ 
+    mid = (west + east) / 2
+    return (south, west, north, mid), (south, mid, north, east)
+
+
+def fetch_bbox(bbox, collected, depth, query_timeout=DEFAULT_QUERY_TIMEOUT, max_elements=MAX_ELEMENTS_PER_QUERY, max_depth=MAX_SPLIT_DEPTH):
+    """
+    Recursively fetch a bounding box, splitting whenever it is too large
+
+    Parameters:
+        bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
+        collected (dict): Mimics the structure of the 'elements' section of Overpass API JSON body. Is used to collect the responses of the different
+            Overpass sub-queries
+    """
+    indent = " " * depth
+    too_large = False
+
+    # Probe the API to see how large the query response would be and whether
+    # that count would exceed the max count limit
+    try:
+        count = get_count(bbox)
+        print(f"{indent}bbox {bbox}: {count} elements")
+        if count == 0:
+            return
+
+        too_large = count > max_elements
+    except OverpassTooLargeError:
+        print(f"{indent}bbox {bbox}: count probe exceeded limit")
+
+
+    # Run the API query if the count probe was under the max elements limit
+    # However, because the probe is only a rudimentary check, the query still may exceed the API limits
+    if not too_large:
+        time.sleep(REQUEST_PAUSE)
+        try:
+            overpass_query = build_overpass_query(bbox, mode='data', query_timeout=query_timeout)
+            data = run_overpass_query(overpass_query, query_timeout=query_timeout)
+
+        except OverpassTooLargeError:
+            print(f"{indent}bbox {bbox}: query exceeded limit")
+            too_large = True
+
+        else:
+            if collected['meta'] is None:
+                collected['meta'] = {k: v for k, v in data.items() if k != 'elements'}
+            for element in data.get('elements', []):
+                collected['elements'][(element['type'], element['id'])] = element
+            return
+
+
+    # Split the bounding box and recurse 
+    if depth >= max_depth:
+        raise OverpassTooLargeError(
+            f"{bbox} bbox still too large after max recursive splits"
+        )
+
+    print(f"{indent}splitting bbox {bbox}")
+    for half in split_bbox(bbox):
+        time.sleep(REQUEST_PAUSE)
+        fetch_bbox(half, collected, depth + 1, query_timeout, max_elements, max_depth)
+
+
+ 
+# ---------------------------------------------------------------------------
+# Main API Execution
 # ---------------------------------------------------------------------------
 
 def get_count(bbox, query_timeout=10):
@@ -235,9 +329,10 @@ def get_count(bbox, query_timeout=10):
     return int(elements[0].get("tags", {}).get("total", 0))
 
 
-def get_overpass(bbox, query_timeout=DEFAULT_QUERY_TIMEOUT):
+def get_overpass(bbox, query_timeout=DEFAULT_QUERY_TIMEOUT, max_elements=MAX_ELEMENTS_PER_QUERY, max_depth=MAX_SPLIT_DEPTH):
     """
-    Fetch full geometry and tags from the Overpass API given the bounding box area
+    Fetch full geometry and tags from the Overpass API given the bounding box area. Employs procedures to 
+    split bounding box queries if original returns an exceeded memory or time limit error or if it predicted to
     
     Parameters:
         bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
@@ -254,11 +349,45 @@ def get_overpass(bbox, query_timeout=DEFAULT_QUERY_TIMEOUT):
     """
     print("\n---------------------------")
     print("Post - Overpass API Request")
- 
-    query = build_overpass_query(bbox, mode="data", query_timeout=query_timeout)
-    data = run_overpass_query(query, query_timeout=query_timeout)
+
+    collected = {'elements': {}, 'meta': None}
+    fetch_bbox(bbox, collected, depth=0, query_timeout=query_timeout, max_elements=max_elements, max_depth=max_depth)
+
+    print(collected)
+
+    data = dict(collected['meta'] or {})
+    data['elements'] = list(collected['elements'].values())
  
     print("Success - Query Received")
     print("---------------------------")
  
+    return data
+
+
+def get_overpass_no_splitting(bbox, query_timeout=DEFAULT_QUERY_TIMEOUT):
+    """
+    Fetch full geometry and tags from the Overpass API given the bounding box area
+        
+    Parameters:
+        bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
+    
+    Returns:
+        dict: The Overpass API JSON response body
+
+    Raises:
+        OverpassTooLargeError: split the bbox and retry the halves.
+        OverpassBadQueryError: fix the query - this is a bug, not a
+            transient condition.
+        OverpassError (and subclasses): other failures after retries
+            are exhausted.
+    """
+    print("\n---------------------------")
+    print("Post - Overpass API Request")
+
+    query = build_overpass_query(bbox=bbox, mode='data', query_timeout=query_timeout)
+    data = run_overpass_query(query=query, query_timeout=query_timeout)
+    
+    print("Success - Query Received")
+    print("---------------------------")
+    
     return data
