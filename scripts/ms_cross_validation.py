@@ -139,14 +139,18 @@ def get_ms_building_data(quadkeys):
 
         gdfs.append(gdf)
 
-    ms_buildings = pd.concat(gdfs, ignore_index=True) 
-    ms_buildings = gpd.GeoDataFrame(
-        ms_buildings,
-        geometry="geometry",
-        crs="EPSG:4326"
-    )
+    if gdfs:
+        ms_buildings = pd.concat(gdfs, ignore_index=True) 
+        ms_buildings = gpd.GeoDataFrame(
+            ms_buildings,
+            geometry="geometry",
+            crs="EPSG:4326"
+        )
 
-    return ms_buildings
+        return ms_buildings
+
+    else:
+        return
 
 
 
@@ -172,7 +176,15 @@ def cross_validate_osm_spaces(bbox, osm_spaces):
 
     quadkeys = extract_quadkeys(bbox=bbox)
     ms_buildings = get_ms_building_data(quadkeys=quadkeys)
-    ms_buildings = ms_buildings.to_crs(osm_parking.crs)
+
+    # If there are no MS buildings in the area of interest
+    # return nothing
+    if len(ms_buildings) > 0:
+        ms_buildings = ms_buildings.to_crs(osm_parking.crs)
+    else:
+        print("No available MS footprint data for desired area")
+        print("---------------------------")
+        return osm_spaces
 
     matches = gpd.sjoin(
         osm_parking,
@@ -181,6 +193,7 @@ def cross_validate_osm_spaces(bbox, osm_spaces):
         predicate='intersects'
     )
 
+    # Check if there is any overlap between the MS and OSM spaces
     if len(matches) > 0:
         matches['osm_area'] = matches.geometry.area
         matches['ms_area'] = matches['index_right'].map(
@@ -222,9 +235,13 @@ def cross_validate_osm_spaces(bbox, osm_spaces):
 
         ]
 
-        osm_spaces = osm_spaces.drop(best_matches.index.unique().to_list())
+        print("Cross Validation Successful")
+        print("---------------------------")
 
-    print("Cross Validation Successful")
+        osm_spaces = osm_spaces.drop(best_matches.index.unique().to_list())
+        return osm_spaces.to_crs(osm_spaces_crs)
+
+    print("No overlap - skipping cross validation")
     print("---------------------------")
 
-    return osm_spaces.to_crs(osm_spaces_crs)
+    return osm_spaces
