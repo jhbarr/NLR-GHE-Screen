@@ -1,6 +1,13 @@
 import geopandas as gpd
 import pandas as pd
+from shapely import make_valid
+from shapely.geometry import Polygon, MultiPolygon, GeometryCollection
+from shapely.ops import unary_union
 
+
+# ---------------------------------------------------------------------------
+# Create + Combine geometry groups
+# ---------------------------------------------------------------------------
 
 def create_overlapping_groups(df):
     """
@@ -121,6 +128,11 @@ def combine(df):
     return combined
 
 
+
+# ---------------------------------------------------------------------------
+# Classify geometry objects
+# ---------------------------------------------------------------------------
+
 def classify_geometry(row):
     """
     Assigns a single category label to a row based on its OSM tags.
@@ -164,6 +176,64 @@ def classify_geometry(row):
     return 'other'
 
 
+
+# ---------------------------------------------------------------------------
+# Geodata cleaner functions
+# ---------------------------------------------------------------------------
+
+def _polygonal_only(geom):
+    """
+    Return only the (Multi)Polygon part of a geometry, or None if there is none
+    
+    Parameters:
+        geom (Geometry object): A Geopandas geometry object 
+    
+    Returns:
+        Geometry object: A unary union (combined) geometry object 
+    """
+    if geom is None or geom.is_empty:
+        return None
+    
+    if not geom.is_valid:
+        geom = make_valid(geom)
+
+    if isinstance(geom, (Polygon, MultiPolygon)):
+        return geom
+    
+    if isinstance(geom, GeometryCollection) or hasattr(geom, "geoms"):
+        polys = []
+        for g in geom.geoms:
+            g = _polygonal_only(g)
+            if g is not None:
+                polys.extend(g.geoms if isinstance(g, MultiPolygon) else [g])
+
+        if polys:
+            return unary_union(polys) if len(polys) > 1 else polys[0]
+        
+    return None  # lines / points are discarded
+
+
+def _clean(gdf):
+    """
+    Make geometries valid, strip non-polygon parts, drop empties
+    
+    Parameters:
+        gdf (Geopandas Dataframe): A Dataframe containing geospatial data
+
+    Returns:
+        Geopandas Dataframe: A Dataframe containing geospatial data
+    """
+    gdf = gdf.copy()
+    gdf["geometry"] = gdf.geometry.apply(_polygonal_only)
+    gdf = gdf[gdf.geometry.notna() & ~gdf.geometry.is_empty]
+    return gdf
+
+
+
+# ---------------------------------------------------------------------------
+# Main combination execution
+# ---------------------------------------------------------------------------
+
 def combine_geometries(df):
     """
     Splits the dataframe into mutually-exclusive categories (protected areas,
@@ -181,59 +251,54 @@ def combine_geometries(df):
     print("\n---------------------------")
     print("Combining overlapping geometries")
 
-    # Earlier categories take priority: their geometry is subtracted from
-    # later categories before those are combined, so overlapping polygons
-    # of different types never get merged into one another.
+    # Establish the priority of space categorization
+    # As well as which categories should be excluded from final results
     priority = ['protected', 'parking', 'green_space', 'other']
     excluded_categories = ['protected']
 
-    # Add the categories to the rows to which they apply
-    df = df.copy()
+    df = _clean(df)
     df['_category'] = df.apply(classify_geometry, axis=1)
 
-
-    combined_parts = [] # Subset geometries that have been combined
-    claimed = None  # running union of geometry already assigned to a category
+    combined_parts = []
+    claimed = None  # a single shapely geometry now, not a GeoDataFrame
 
     for category in priority:
-        # Get all of the row entries that were assigned this category 
         subset = df[df['_category'] == category].drop(columns='_category')
         if subset.empty:
             continue
 
-        # If there is an area already 'claimed' by geometries with higher priority
-        # crop those areas from the geometries of the current category
-        # so that they do not overlap 
+        # Subtract higher-priority area with plain shapely, not gpd.overlay
         if claimed is not None:
-            subset = gpd.overlay(subset, claimed, how="difference")
+            subset = subset.copy()
+            subset["geometry"] = subset.geometry.difference(claimed)
+            subset = _clean(subset)
             if subset.empty:
                 continue
 
-        # Within the current category subset
-        # merge the geometries that overlap with each other 
+        # Combine all overlapping geometries within the category 
+        # if that category has not been highlighed for exclusion
         if category not in excluded_categories:
-            subset = combine(subset)
+            subset = _clean(combine(subset))
             combined_parts.append(subset)
 
-        # Create / expand the large Multipolygon that describes all of the geometry area already 
-        # claimed by higher priority category geometries
-        category_union = gpd.GeoDataFrame(
-            geometry=[subset.geometry.union_all()], crs=df.crs
-        )
-        claimed = (
-            category_union if claimed is None
-            else gpd.overlay(claimed, category_union, how="union")
-        )
+        print(f"Combining category: {category}")
 
-    # If nothing was combined
+        # Either create or add to the 'combined' data structure
+        # which is a conglomerate of all previously examined geometries
+        # as to not allow overlap between geometries of different categories
+        category_union = _polygonal_only(subset.geometry.union_all())
+        if category_union is not None:
+            claimed = (
+                category_union if claimed is None
+                else _polygonal_only(claimed.union(category_union))
+            )
+
     if not combined_parts:
         return gpd.GeoDataFrame(columns=df.columns.drop('_category'), crs=df.crs)
 
-    # Create the new dataframe of newly merged-by-category geometries
     result = pd.concat(combined_parts, ignore_index=True)
     result = gpd.GeoDataFrame(result, geometry='geometry', crs=df.crs)
 
     print("Combination Successful")
     print("---------------------------")
-
     return result
