@@ -1,0 +1,205 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MS Footprint Cross Validation (scripts.ms_cross_validation) &mdash; NLR GHE Screen  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Geometry Merging (scripts.geometry_manipulation)" href="geometry_manipulation.html" />
+    <link rel="prev" title="GeoJSON Validation (scripts.validate_geojson)" href="validate_geojson.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            NLR GHE Screen
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="parse_args.html">Parse User Arguments (<code class="xref py py-mod docutils literal notranslate"><span class="pre">scripts.parse_args</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="validate_geojson.html">GeoJSON Validation (<code class="xref py py-mod docutils literal notranslate"><span class="pre">scripts.validate_geojson</span></code>)</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">MS Footprint Cross Validation (<code class="xref py py-mod docutils literal notranslate"><span class="pre">scripts.ms_cross_validation</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-scripts.ms_cross_validation">Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#scripts.ms_cross_validation.cross_validate_osm_spaces"><code class="docutils literal notranslate"><span class="pre">cross_validate_osm_spaces()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#scripts.ms_cross_validation.extract_quadkeys"><code class="docutils literal notranslate"><span class="pre">extract_quadkeys()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#scripts.ms_cross_validation.get_ms_building_data"><code class="docutils literal notranslate"><span class="pre">get_ms_building_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#scripts.ms_cross_validation.latlon_to_tile"><code class="docutils literal notranslate"><span class="pre">latlon_to_tile()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#scripts.ms_cross_validation.tile_to_quadkey"><code class="docutils literal notranslate"><span class="pre">tile_to_quadkey()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#dependencies">Dependencies</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="geometry_manipulation.html">Geometry Merging (<code class="xref py py-mod docutils literal notranslate"><span class="pre">scripts.geometry_manipulation</span></code>)</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">NLR GHE Screen</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">MS Footprint Cross Validation (<code class="xref py py-mod docutils literal notranslate"><span class="pre">scripts.ms_cross_validation</span></code>)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/ms_cross_validation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="ms-footprint-cross-validation-scripts-ms-cross-validation">
+<h1>MS Footprint Cross Validation (<a class="reference internal" href="#module-scripts.ms_cross_validation" title="scripts.ms_cross_validation"><code class="xref py py-mod docutils literal notranslate"><span class="pre">scripts.ms_cross_validation</span></code></a>)<a class="headerlink" href="#ms-footprint-cross-validation-scripts-ms-cross-validation" title="Link to this heading"></a></h1>
+<p>This page details the operations of the MS footprint cross validation functions. This module
+is designed to query the MS Footprint database given the user defined bounding box area.
+It then scrapes all buildings from that area and cross validates them with the data scraped from OpenStreetMap</p>
+<section id="module-scripts.ms_cross_validation">
+<span id="functions"></span><h2>Functions<a class="headerlink" href="#module-scripts.ms_cross_validation" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="scripts.ms_cross_validation.cross_validate_osm_spaces">
+<span class="sig-prename descclassname"><span class="pre">scripts.ms_cross_validation.</span></span><span class="sig-name descname"><span class="pre">cross_validate_osm_spaces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bbox</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">osm_spaces</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#scripts.ms_cross_validation.cross_validate_osm_spaces" title="Link to this definition"></a></dt>
+<dd><p>Eliminates all parking spaces from the data queried from OSM by cross validating it
+with building data from MS Footprint</p>
+<dl class="simple">
+<dt>Paramters:</dt><dd><p>osm_spaces (GeoDataframe): A dataframe containing all extracted OSM space data
+bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="scripts.ms_cross_validation.extract_quadkeys">
+<span class="sig-prename descclassname"><span class="pre">scripts.ms_cross_validation.</span></span><span class="sig-name descname"><span class="pre">extract_quadkeys</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bbox</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#scripts.ms_cross_validation.extract_quadkeys" title="Link to this definition"></a></dt>
+<dd><p>Using bounding box coordinates, get all quadkey values associated with the MS footprint tiles
+that fall within the area defined by that bounding box</p>
+<dl class="simple">
+<dt>Parameters:</dt><dd><p>bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)</p>
+</dd>
+<dt>Returns:</dt><dd><p>quadkeys (list[str]): A list of the quadkeys associated with MS footprint tiles</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="scripts.ms_cross_validation.get_ms_building_data">
+<span class="sig-prename descclassname"><span class="pre">scripts.ms_cross_validation.</span></span><span class="sig-name descname"><span class="pre">get_ms_building_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">quadkeys</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#scripts.ms_cross_validation.get_ms_building_data" title="Link to this definition"></a></dt>
+<dd><p>Using a set of MS quadkeys, extract all building data from the MS footprint database</p>
+<dl class="simple">
+<dt>Paramters:</dt><dd><p>quadkeys (list[str]): A list of the quadkeys associated with MS footprint tiles</p>
+</dd>
+<dt>Returns:</dt><dd><p>gdf (GeoDataframe): A dataframe containing all extracted building data</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="scripts.ms_cross_validation.latlon_to_tile">
+<span class="sig-prename descclassname"><span class="pre">scripts.ms_cross_validation.</span></span><span class="sig-name descname"><span class="pre">latlon_to_tile</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lat</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lon</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">9</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#scripts.ms_cross_validation.latlon_to_tile" title="Link to this definition"></a></dt>
+<dd><p>Convert WGS84 latitude/longitude coordinates into a tile used by MS footprint
+to store data</p>
+<dl class="simple">
+<dt>Parameters:</dt><dd><p>lat (float): Latitude coordiante in the correct CRS
+lon (float): Longitude coordiante in the correct CRS</p>
+</dd>
+<dt>Returns:</dt><dd><p>tile_x (int): The x value of the MS footprint tile
+tile_y (int): The y value of the MS footprint tile</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="scripts.ms_cross_validation.tile_to_quadkey">
+<span class="sig-prename descclassname"><span class="pre">scripts.ms_cross_validation.</span></span><span class="sig-name descname"><span class="pre">tile_to_quadkey</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tile_x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tile_y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">9</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#scripts.ms_cross_validation.tile_to_quadkey" title="Link to this definition"></a></dt>
+<dd><p>Converts a MS Footprint tile to a quadkey value to access the building values
+via the MS API</p>
+<dl class="simple">
+<dt>Parameters:</dt><dd><p>tile_x (int): The x value of the MS footprint tile
+tile_y (int): The y value of the MS footprint tile</p>
+</dd>
+<dt>Returns:</dt><dd><p>quadkey (str): The quadkey value used to query the MS API for building data</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="dependencies">
+<h2>Dependencies<a class="headerlink" href="#dependencies" title="Link to this heading"></a></h2>
+<p><strong>Python</strong>:</p>
+<ul class="simple">
+<li><p>geopandas</p></li>
+<li><p>pandas</p></li>
+<li><p>shapely.geometry.shape</p></li>
+<li><p>math</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="validate_geojson.html" class="btn btn-neutral float-left" title="GeoJSON Validation (scripts.validate_geojson)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="geometry_manipulation.html" class="btn btn-neutral float-right" title="Geometry Merging (scripts.geometry_manipulation)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Joseph Barrows.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

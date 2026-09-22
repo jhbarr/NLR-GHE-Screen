@@ -1,17 +1,18 @@
 import sys
 import json
 from pathlib import Path
+import os
 
 from jsonschema import ValidationError
 from pyogrio.errors import DataSourceError
-from osm_api import OverpassError
+from .osm_api import OverpassError
 
-from parse_args import parse_arguments
-from osm_api import get_overpass
-from parse_geojson import parse_api_response
-from validate_geojson import validate_geojson
-from geometry_manipulation import combine_geometries, classify_geometry
-from ms_cross_validation import cross_validate_osm_spaces
+from .parse_args import parse_arguments
+from .osm_api import get_overpass
+from .parse_geojson import parse_api_response
+from .validate_geojson import validate_geojson
+from .geometry_manipulation import combine_geometries, classify_geometry
+from .ms_cross_validation import cross_validate_osm_spaces
 
 
 # ---------------------------------------------------------------------------
@@ -57,14 +58,21 @@ def export_results(df, response):
         df (Geopandas Dataframe)
         response (dict): The Overpass API JSON response body
     """
-    # Export all files to the export folder 
-    df.to_file("../Exports/ghe_locations.geojson", driver="GeoJSON")
-    with open("../Exports/ghe_loction_metadata.json", "w", encoding="utf-8") as file:
+    export_dir = Path(__file__).parent / ".." / "exports"
+
+    # Export geometry data to the necessary file
+    file_path = export_dir / 'ghe_locations.geojson'
+    df.to_file(file_path, driver="GeoJSON")
+
+    # Export geometry metadata to the necessary file
+    file_path = export_dir / 'ghe_location_metadata.json'
+    with open(file_path, "w", encoding="utf-8") as file:
         metadata = aggregate_metadata(df=df)
         json.dump(metadata, file, indent=4)
 
     # Isolate and export the metadata regarding the Overpass API query 
-    with open("../Exports/overpass_api_metadata.json", "w", encoding="utf-8") as file:
+    file_path = export_dir / 'overpass_api_metadata.json'
+    with open(file_path, "w", encoding="utf-8") as file:
         keys = {'version', 'generator', 'osm3s'}
         query_metadata = {key: response[key] for key in keys if key in response}
         json.dump(query_metadata, file, indent=4)
