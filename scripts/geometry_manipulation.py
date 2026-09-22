@@ -64,7 +64,7 @@ def create_overlapping_groups(df):
     return groups
 
 
-def combine(df):
+def combine_overlapping_groups(df):
     """
     This function combines Geodataframe rows based on whether they contain overlapping geometries
     It returns a new and condensed dataframe based on these overlaps
@@ -278,7 +278,7 @@ def combine_geometries(df):
         # Combine all overlapping geometries within the category 
         # if that category has not been highlighed for exclusion
         if category not in excluded_categories:
-            subset = _clean(combine(subset))
+            subset = _clean(combine_overlapping_groups(subset))
             combined_parts.append(subset)
 
         print(f"Combining category: {category}")
