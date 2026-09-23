@@ -17,4 +17,8 @@ Functions
 
 Dependencies
 ------------
-**Python**: GeoPandas, argparse, pyproj.CRS
+**Python**: 
+
+- GeoPandas
+- argparse
+- pyproj.CRS

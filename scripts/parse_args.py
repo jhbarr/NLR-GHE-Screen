@@ -1,11 +1,7 @@
 import argparse
 import geopandas as gpd
-import pyproj
 from pathlib import Path
-
 from pyproj import CRS
-from shapely.geometry import box
-from shapely.ops import transform
 
 # ---------------------------------------------------------------------------
 # Verification 
@@ -48,7 +44,15 @@ def verify_bbox_coordinates(bbox):
         
 def parse_arguments(args):
     """
-    Parses the user inputted command line arguments and runs checks on them
+    Parses the user inputted command line arguments and runs checks on them.
+    The user can input a --bbox flag and the four coordinates describing the south, west, north, east corners of a area bounding box.
+    Or they can enter a --file flag and the relative path of an URBANopt GoeJSON file 
+    The URBANopt file must have at least an entry of the form:
+        {
+            "type": "Feature",
+            "properties": {"type": "bounding box"},
+            "geometry": {"type": "Polygon", "coordinates": []}
+        }
 
     Parameters:
         args (Str): The user inputted command line arguments
@@ -57,7 +61,7 @@ def parse_arguments(args):
         bbox (Tuple[float]): A tuple containing the coordinates of the bounding box 
     
     Raises:
-        ValueError: If the bbox coordinates are not in the correct CRS (EPSG:4326)
+        ValueError: If the bbox coordinates are not in the correct CRS (EPSG:4326), or if an input file does not have a bounding box feature
         SystemExit: If the arguments are in incorrect form or if there are arguments missing
         FileNotFound: If the user's input file cannot be found
         DataSourceError: If the user's input file is is not a proper spatial file
@@ -110,13 +114,17 @@ def parse_arguments(args):
         if not file_path.is_file():
             raise FileNotFoundError(f"Input file does not exist: {parsed.file}")
 
-        # Open the proviided file 
+        # Open the provided file 
         # And check that it meets the URBANopt GeoJSON standards
         gdf = gpd.read_file(parsed.file) # Will raise DataSourceError if file is not proper spatial file
-        bounding_polygon = gdf.geometry.union_all().convex_hull
+
+        # Retrieve the coordinates from the GeoJSON file
+        matches = gdf.loc[gdf['type'] == 'bounding box']
+        if len(matches) != 1:
+            raise ValueError(f"Expected exactly one bounding box, found: {len(matches)}")
+        west, south, east, north = matches.bounds.iloc[0]
 
         # Retrieve the bounding box coordinates that encompass all buildings
-        west, south, east, north = bounding_polygon.bounds
         bbox = (south, west, north, east)
 
         verify_bbox_coordinates(bbox=bbox)
