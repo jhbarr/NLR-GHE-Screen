@@ -48,7 +48,7 @@ class TestEnd2End:
         mock_post = mocker.patch('scripts.osm_api.requests.post')
         mock_post.return_value = mock_response
 
-        result, status_code = get_overpass(bbox=bbox)
+        result = get_overpass(bbox=bbox)
         # ** Raises RuntimeError - If the API does not return a 200 status code or any other error **
 
         # 3. 
@@ -80,7 +80,7 @@ class TestEnd2End:
 
         bbox = parse_arguments(test_args)
 
-        result, status_code = get_overpass(bbox=bbox)
+        result = get_overpass(bbox=bbox)
 
         gdf = parse_api_response(result)
 

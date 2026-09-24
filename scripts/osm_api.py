@@ -176,6 +176,10 @@ def run_overpass_query(query, query_timeout=DEFAULT_QUERY_TIMEOUT, max_retries=3
             response = requests.post(
                 OVERPASS_URL,
                 data={"data": query},
+                headers = {
+                    "User-Agent": "cafe-finder-script/0.1 (contact: joseph.barrows@nlr.gov)",
+                    "Accept": "application/json",
+                },
                 timeout=http_timeout
             )
 

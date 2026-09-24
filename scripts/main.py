@@ -96,7 +96,7 @@ def run(args):
     with open(file_path, 'r', encoding='utf-8') as file:
         result = json.load(file)
 
-    # result, status_code = get_overpass(bbox=bbox)
+    # result = get_overpass(bbox=bbox)
 
     gdf = parse_api_response(data=result)
 

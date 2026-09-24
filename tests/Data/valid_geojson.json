@@ -33,6 +33,25 @@
     {
       "type": "Feature",
       "properties": {
+        "type": "bounding box"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-105.27, 39.69],
+            [-105.17, 39.69],
+            [-105.17, 39.79],
+            [-105.27, 39.79],
+            [-105.27, 39.69]
+          ]
+        ]
+      }
+    },
+    
+    {
+      "type": "Feature",
+      "properties": {
         "id": "53340c2c-ab20-40db-aba1-11ac607c52a7",
         "name": "Site Origin",
         "type": "Site Origin",
