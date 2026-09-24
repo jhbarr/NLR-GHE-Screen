@@ -23,7 +23,7 @@ class TestGeometryParse:
         Test that the function correctly parses out the way geometry from the test data
         """
         # Load in test data
-        file_path = Path(__file__).parent / "data" / "parse_test_data.json"      
+        file_path = Path(__file__).parent / "parsing_test_data" / "parse_test_data.json"      
         with open(file_path, 'r', encoding='utf-8') as file:
             test_data = json.load(file)
 
@@ -38,7 +38,7 @@ class TestGeometryParse:
             Test that the function correctly parses out the relation geometry from the test data
             """
             # Load in test data
-            file_path = Path(__file__).parent / "data" / "parse_test_data.json"
+            file_path = Path(__file__).parent / "parsing_test_data" / "parse_test_data.json"
             with open(file_path, 'r', encoding='utf-8') as file:
                 test_data = json.load(file)
 
@@ -78,7 +78,7 @@ class TestAPIParse:
         """
         Verify that all desired fields are a part of the parsed Overpass API response
         """
-        file_path = Path(__file__).parent / "data" / "mock_overpass_query.json"
+        file_path = Path(__file__).parent / "parsing_test_data" / "parse_test_data.json"
         with open(file_path, 'r', encoding='utf-8') as file:
             test_data = json.load(file)
 

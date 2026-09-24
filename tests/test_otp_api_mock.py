@@ -44,7 +44,7 @@ def load_mock_data_bytes():
     """
     Load in the test elevation_raster_data.tif file and return its contents in byte format
     """
-    data_dir = Path(__file__).parent / 'data_otp'
+    data_dir = Path(__file__).parent / 'otp_test_data'
     return (data_dir / 'elevation_raster_data.tif').read_bytes()
 
 

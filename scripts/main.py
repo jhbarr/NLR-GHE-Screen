@@ -92,11 +92,7 @@ def run(args):
     """
     bbox = parse_arguments(args)
 
-    file_path = Path(__file__).parent.parent / "tests" / "data" / "golden_query.json"
-    with open(file_path, 'r', encoding='utf-8') as file:
-        result = json.load(file)
-
-    # result = get_overpass(bbox=bbox)
+    result = get_overpass(bbox=bbox)
 
     gdf = parse_api_response(data=result)
 

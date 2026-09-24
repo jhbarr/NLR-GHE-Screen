@@ -16,9 +16,11 @@ documentation for details.
    :maxdepth: 2
    :caption: Contents:
 
-   parse_args
-   validate_geojson
-   ms_cross_validation
-   geometry_manipulation
    main_file
+   scripts/parse_args
+   scripts/validate_geojson
+   scripts/ms_cross_validation
+   scripts/geometry_manipulation
 
+   api/osm_api
+   api/otp_api
