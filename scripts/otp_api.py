@@ -170,7 +170,7 @@ def get_opentop(bbox, api_key):
     print("Get - OpenTopography API Request")
 
     # Create imports folder if it does not yet exist
-    dir_path = Path('../imports')
+    dir_path = Path('imports')
     dir_path.mkdir(parents=True, exist_ok=True)
 
     # Build and execute the API call to OpenTopography

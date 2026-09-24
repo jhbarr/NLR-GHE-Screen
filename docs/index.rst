@@ -21,6 +21,6 @@ documentation for details.
    scripts/validate_geojson
    scripts/ms_cross_validation
    scripts/geometry_manipulation
-
+   scripts/elevation_categorization
    api/osm_api
    api/otp_api

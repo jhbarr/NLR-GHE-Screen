@@ -2,17 +2,24 @@ import sys
 import json
 from pathlib import Path
 import os
+from dotenv import load_dotenv
 
 from jsonschema import ValidationError
 from pyogrio.errors import DataSourceError
 from .osm_api import OverpassError
+from .otp_api import OpentopError
 
 from .parse_args import parse_arguments
 from .osm_api import get_overpass
+from .otp_api import get_opentop
 from .parse_geojson import parse_api_response
 from .validate_geojson import validate_geojson
 from .geometry_manipulation import combine_geometries, classify_geometry
 from .ms_cross_validation import cross_validate_osm_spaces
+from .elevation_categorization import categorize_steepness
+
+# Load the environment variables
+load_dotenv()
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +97,8 @@ def run(args):
     Parameters:
         args (list[Str]): The arguments to the program
     """
+    api_key = os.getenv("API_KEY")
+
     bbox = parse_arguments(args)
 
     result = get_overpass(bbox=bbox)
@@ -101,6 +110,12 @@ def run(args):
     gdf = cross_validate_osm_spaces(bbox=bbox, osm_spaces=gdf) # ** Optional Step **
 
     gdf = combine_geometries(df=gdf) # ** Optional Step **
+
+    west, south, east, north = gdf.total_bounds
+    opentop_bbox = (south, west, north, east)
+    get_opentop(bbox=opentop_bbox, api_key=api_key)
+
+    categorize_steepness(gdf=gdf)
 
     export_results(df=gdf, response=result)
 
@@ -125,7 +140,8 @@ def main(args):
         TypeError,
         FileNotFoundError,
         DataSourceError,
-        OverpassError
+        OverpassError,
+        OpentopError
     ) as exc:
          print(f"Error - {exc}")
 
