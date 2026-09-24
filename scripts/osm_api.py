@@ -150,6 +150,9 @@ def run_overpass_query(query, query_timeout=DEFAULT_QUERY_TIMEOUT, max_retries=3
     """
     Exeecure an Overpass QL query with retries for certain failures. Additionally,
     raise any specific Overpass errors for certain conditions
+    
+    Note - The query will return any spaces that overlap with the bounding box, not necessarily all of the spaces
+    that are strictly within the bounding box. 
 
     Parameters:
         query (str): A constructed Overpass QL query text

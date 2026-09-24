@@ -97,8 +97,6 @@ def run(args):
     Parameters:
         args (list[Str]): The arguments to the program
     """
-    api_key = os.getenv("API_KEY")
-
     bbox = parse_arguments(args)
 
     result = get_overpass(bbox=bbox)
@@ -111,9 +109,9 @@ def run(args):
 
     gdf = combine_geometries(df=gdf) # ** Optional Step **
 
+    api_key = os.getenv("API_KEY")
     west, south, east, north = gdf.total_bounds
-    opentop_bbox = (south, west, north, east)
-    get_opentop(bbox=opentop_bbox, api_key=api_key)
+    get_opentop(bbox=(south, west, north, east), api_key=api_key)
 
     categorize_steepness(gdf=gdf)
 
@@ -152,5 +150,4 @@ def main(args):
 # ---------------------------------------------------------------------------
 
 if __name__ == '__main__':
-    args = sys.argv[1:]
-    main(args=args)
+    main(args=sys.argv[1:])

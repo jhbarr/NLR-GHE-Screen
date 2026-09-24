@@ -1,4 +1,4 @@
-MS Footprint Cross Validation (:py:mod:`scripts.elevation_categorization`)
+Shape Elevation Categorization (:py:mod:`scripts.elevation_categorization`)
 =====================================================================
 
 This page details the functionality involved in categorizing different geometries based on how steep they are
