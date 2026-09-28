@@ -156,12 +156,17 @@ def summarize_stats(clips):
         if vals.size == 0:
             continue
 
+        bins = [0, 5, 10, 20, np.inf]
+        labels = ["0-5%", "5-10%", "10-20%", ">20%"]
+
+        counts, _ = np.histogram(vals, bins=bins)
+        num_pixels = vals.size
+
         stats[idx] = {
-            "min": vals.min(),
-            "max": vals.max(),
+            **dict(zip(labels, np.round(counts / num_pixels, 2) * 100)),
             "mean": vals.mean(),
             "median": np.median(vals),
-            "num_pixels": vals.size
+            "num_pixels": num_pixels,
         }
 
     return stats
@@ -175,18 +180,22 @@ def calculate_slopes(elevation_src):
     Parameters:
         elevation_src (rasterio.io.DatasetReader): The elevation raster data
     """
-
-    dem = elevation_src.read(1, masked=True).astype(float).filled(np.nan) # Pixels matching the nodata value are flagged as masked so as to not skew math functions
-    dx, dy = elevation_src.res # Get the real world dimensions of a single raster pixel
+    dem = elevation_src.read(1, masked=True).astype(float).filled(np.nan)
+    dx, dy = elevation_src.res
     profile = elevation_src.profile
 
     gy, gx = np.gradient(dem, dy, dx)
-    slope = np.degrees(np.arctan(np.hypot(gx, gy))).astype('float32')
+    rise_run = np.hypot(gx, gy)  # tangent of the slope angle, i.e. rise/run
+
+    slope_deg = np.degrees(np.arctan(rise_run)).astype("float32")
+    percent_gradient = (rise_run * 100).astype("float32")
 
     profile.update(dtype="float32", nodata=np.nan)
-    file_path = IMPORT_DIR + 'slope.tif'
-    with rasterio.open(file_path, "w", **profile) as dst:
-        dst.write(slope, 1)
+    dst_path = IMPORT_DIR + 'slope.tif'
+    with rasterio.open(dst_path, "w", **profile) as dst:
+        dst.write(percent_gradient, 1)
+
+    return percent_gradient
 
 
 
