@@ -14,13 +14,22 @@ documentation for details.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Getting Started
 
-   main_file
-   scripts/parse_args
-   scripts/validate_geojson
-   scripts/ms_cross_validation
-   scripts/geometry_manipulation
-   scripts/elevation_categorization
-   api/osm_api
-   api/otp_api
+.. toctree::
+   :maxdepth: 2
+   :caption: GHE Screening Scripts
+
+   scripts/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: API Reference
+
+   api/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Database Reference
+
+   databases/index
