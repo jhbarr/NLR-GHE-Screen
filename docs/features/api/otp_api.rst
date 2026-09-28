@@ -1,4 +1,4 @@
-OpenTopography API (:py:mod:`scripts.otp_api`)
+OpenTopography API (:py:mod:`nlr_ghe_screen.api.otp_api`)
 ==============================================================
 
 This page details the various functions involved with querying the OpenTopography database via their API. 

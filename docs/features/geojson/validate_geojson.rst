@@ -1,4 +1,4 @@
-GeoJSON Validation (:py:mod:`scripts.validate_geojson`)
+GeoJSON Validation (:py:mod:`nlr_ghe_screen.geojson.validate_geojson`)
 =======================================================
 
 This page details the operations of the GeoJSON validation procedure. This module looks at parsed GeoJSON 

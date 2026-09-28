@@ -1,4 +1,4 @@
-Overpass API (:py:mod:`scripts.osm_api`)
+Overpass API (:py:mod:`nlr_ghe_screen.api.osm_api`)
 ==============================================================
 
 This page details the various functions involved with querying the OpenStreetMap databased via the

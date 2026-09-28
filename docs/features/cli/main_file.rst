@@ -1,4 +1,4 @@
-Main Execution (:py:mod:`scripts.main`)
+Main Execution (:py:mod:`nlr_ghe_screen.cli.main`)
 =======================================
 
 This page details the main execution file of the GHE Screen program

@@ -1,4 +1,4 @@
-Geometry Merging (:py:mod:`scripts.geometry_manipulation`)
+Geometry Merging (:py:mod:`nlr_ghe_screen.processing.geometry_manipulation`)
 ==============================================================
 
 This page details the geometry merging procedure. The functions in this module are used to group geometries

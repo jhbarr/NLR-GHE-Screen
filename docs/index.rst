@@ -14,15 +14,15 @@ Introduction to the program here
 
 .. toctree::
    :maxdepth: 2
-   :caption: Scripts
+   :caption: Features
 
-   scripts/index
+   features/index
 
 .. toctree::
    :maxdepth: 2
    :caption: APIs
 
-   api/index
+   features/api/index
 
 .. toctree::
    :maxdepth: 2

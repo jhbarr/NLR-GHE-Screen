@@ -1,4 +1,4 @@
-Parse User Arguments (:py:mod:`scripts.parse_args`)
+Parse User Arguments (:py:mod:`nlr_ghe_screen.cli.parse_args`)
 ===================================================
 
 This page details the operations of the parse_args functions

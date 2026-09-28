@@ -1,4 +1,4 @@
-MS Footprint Cross Validation (:py:mod:`scripts.ms_cross_validation`)
+MS Footprint Cross Validation (:py:mod:`nlr_ghe_screen.processing.ms_cross_validation`)
 =====================================================================
 
 This page details the operations of the MS footprint cross validation functions. This module
