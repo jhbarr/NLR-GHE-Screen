@@ -25,8 +25,11 @@ docs = [
 ]
 
 [project.scripts]
-nlr-ghe-screen = "nlr_ghe_screen:main"
+nlr-ghe-screen = "nlr_ghe_screen.cli.main:main"
 
 [build-system]
 requires = ["uv_build>=0.12.13,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -3,7 +3,7 @@ import geopandas as gpd
 import pandas as pd
 from geopandas.testing import assert_geodataframe_equal
 
-from scripts.geometry_manipulation import (
+from nlr_ghe_screen.processing.geometry import (
     create_overlapping_groups, 
     combine_geometries, 
     classify_geometry

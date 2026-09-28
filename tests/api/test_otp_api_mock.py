@@ -2,7 +2,7 @@ import pytest
 import requests
 from pathlib import Path
 
-from scripts.otp_api import (
+from nlr_ghe_screen.api.otp_api import (
     build_opentop_query,
     run_opentop_query,
     get_opentop,
@@ -44,7 +44,7 @@ def load_mock_data_bytes():
     """
     Load in the test elevation_raster_data.tif file and return its contents in byte format
     """
-    data_dir = Path(__file__).parent / 'otp_test_data'
+    data_dir = Path(__file__).parent / 'otp_data'
     return (data_dir / 'elevation_raster_data.tif').read_bytes()
 
 
@@ -90,7 +90,7 @@ class TestSuccessfulRequests:
         call_args = mock_get.call_args
         assert call_args.args[0] == 'https://portal.opentopography.org/API/globaldem'
 
-        path_str = '../imports/elevation_data.tif'
+        path_str = Path(__file__).parent / 'imports' / 'elevation_data.tif'
         assert Path(path_str).is_file()
 
 

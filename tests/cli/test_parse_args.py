@@ -1,9 +1,10 @@
 import pytest
 from pyogrio.errors import DataSourceError
-from scripts.parse_args import parse_arguments
 from pathlib import Path
 
-
+from nlr_ghe_screen.cli.parse_args import (
+    parse_arguments
+)
 
 # ---------------------------------------------------------------------------
 # Test - Bounding Box Input
@@ -79,7 +80,7 @@ class TestFileCommandLineArgs:
         """
         Verify that the program parses the file and retrieves the bounding box correctly
         """
-        file_path = Path(__file__).parent / "parsing_test_data" / "valid_geojson.json"
+        file_path = Path(__file__).parent / "cli_data" / "valid_geojson.json"
         test_args = ['--file', str(file_path)]
 
         bbox = parse_arguments(test_args)
@@ -90,7 +91,7 @@ class TestFileCommandLineArgs:
         """
         Verify the program handles the case where an invalid GeoJSON is given
         """
-        file_path = Path(__file__).parent / "parsing_test_data" / "invalid_geojson.json"
+        file_path = Path(__file__).parent / "cli_data" / "invalid_geojson.json"
         test_args = ['--file', str(file_path)]
  
         with pytest.raises(DataSourceError):

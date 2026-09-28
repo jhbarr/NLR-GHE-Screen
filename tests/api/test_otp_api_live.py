@@ -3,7 +3,9 @@ from dotenv import load_dotenv
 import os
 from pathlib import Path
 
-from scripts.otp_api import get_opentop
+from nlr_ghe_screen.api.otp_api import (
+    get_opentop
+)
 
 
 
@@ -23,5 +25,5 @@ class TestLiveOpenTopographyAPI:
     def test_opentop_query(self):
         get_opentop(bbox=TEST_BBOX, api_key=api_key)
 
-        path_str = '../imports/elevation_data.tif'
+        path_str = Path(__file__).parent / 'imports' / 'elevation_data.tif'
         assert Path(path_str).is_file()

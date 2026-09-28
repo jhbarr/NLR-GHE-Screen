@@ -3,7 +3,9 @@ import pytest
 from shapely.geometry import Polygon
 import geopandas as gpd
 
-from scripts.validate_geojson import validate_geojson
+from nlr_ghe_screen.geojson.validate_geojson import (
+     validate_geojson
+)
 
 
 

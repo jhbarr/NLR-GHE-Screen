@@ -1,6 +1,8 @@
 import pytest
 
-from scripts.osm_api import get_overpass
+from nlr_ghe_screen.api.osm_api import (
+    get_overpass
+)
 
 @pytest.mark.live_api
 class TestLiveOverpassAPI:

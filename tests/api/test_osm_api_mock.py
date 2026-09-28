@@ -4,7 +4,7 @@ import json
 import pytest
 import requests
  
-from scripts.osm_api import (
+from nlr_ghe_screen.api.osm_api import (
     build_overpass_query,
     run_overpass_query,
     get_overpass,
@@ -40,7 +40,7 @@ def make_response(mocker, status_code=200, json_data=None, text="", json_error=F
 
 
 def load_mock_data():
-    file_path = Path(__file__).parent / "osm_test_data" / "mock_overpass_query.json"
+    file_path = Path(__file__).parent / "osm_data" / "mock_overpass_query.json"
     with open(file_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
