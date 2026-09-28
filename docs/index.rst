@@ -7,10 +7,6 @@ NLR GHE Screen documentation
 ============================
 Introduction to the program here
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
-
 
 .. toctree::
    :maxdepth: 2
@@ -18,18 +14,18 @@ documentation for details.
 
 .. toctree::
    :maxdepth: 2
-   :caption: GHE Screening Scripts
+   :caption: Scripts
 
    scripts/index
 
 .. toctree::
    :maxdepth: 2
-   :caption: API Reference
+   :caption: APIs
 
    api/index
 
 .. toctree::
    :maxdepth: 2
-   :caption: Database Reference
+   :caption: Data Sources
 
    databases/index

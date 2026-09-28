@@ -1,6 +1,6 @@
 API Reference
 =============
-** Add introduction here ** 
+The scripts responsible for sending queries to the necessary databases.
 
 .. toctree::
     :maxdepth: 1
