@@ -9,7 +9,7 @@ are in the correct format
 Functions
 ---------
 
-.. automodule:: scripts.parse_args
+.. automodule:: nlr_ghe_screen.cli.parse_args
    :members:
    :undoc-members:
    :show-inheritance:

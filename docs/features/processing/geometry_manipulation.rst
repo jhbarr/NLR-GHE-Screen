@@ -1,4 +1,4 @@
-Geometry Merging (:py:mod:`nlr_ghe_screen.processing.geometry_manipulation`)
+Geometry Merging (:py:mod:`nlr_ghe_screen.processing.geometry`)
 ==============================================================
 
 This page details the geometry merging procedure. The functions in this module are used to group geometries
@@ -8,7 +8,7 @@ physically overlap with each other are merged into one large geometric shape. Th
 Functions
 ---------
 
-.. automodule:: scripts.geometry_manipulation
+.. automodule:: nlr_ghe_screen.processing.geometry
    :members:
    :undoc-members:
    :show-inheritance:

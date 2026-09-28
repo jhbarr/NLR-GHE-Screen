@@ -32,7 +32,7 @@ Additionally, the maximum query size differs based on which database you are que
 Functions
 ---------
 
-.. automodule:: scripts.otp_api
+.. automodule:: nlr_ghe_screen.api.otp_api
    :members:
    :undoc-members:
 

@@ -7,7 +7,7 @@ and ensures that the required fields for URBANopt GeoJSON are included and that 
 Functions
 ---------
 
-.. automodule:: scripts.validate_geojson
+.. automodule:: nlr_ghe_screen.geojson.validate_geojson
    :members:
    :undoc-members:
    :show-inheritance:

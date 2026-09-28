@@ -6,7 +6,7 @@ This page details the main execution file of the GHE Screen program
 Functions
 ---------
 
-.. automodule:: scripts.main
+.. automodule:: nlr_ghe_screen.cli.main
    :members:
    :undoc-members:
    :show-inheritance:

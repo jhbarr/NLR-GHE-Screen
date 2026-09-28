@@ -29,7 +29,7 @@ to dynamic memory limits and a timeout depending on the server load.
 Functions
 ---------
 
-.. automodule:: scripts.osm_api
+.. automodule:: nlr_ghe_screen.api.osm_api
    :members:
    :undoc-members:
 

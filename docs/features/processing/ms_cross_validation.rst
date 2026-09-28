@@ -8,7 +8,7 @@ It then scrapes all buildings from that area and cross validates them with the d
 Functions
 ---------
 
-.. automodule:: scripts.ms_cross_validation
+.. automodule:: nlr_ghe_screen.processing.ms_cross_validation
    :members:
    :undoc-members:
    :show-inheritance:
