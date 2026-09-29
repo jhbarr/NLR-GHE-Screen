@@ -9,7 +9,7 @@ from rasterio.io import MemoryFile # Lets you read / write files in RAM without 
 
 YEAR = 2021          # 2020 or 2021
 VERSION = "v200"      # "v100" for 2020, "v200" for 2021
-OUTPUT_TIF = "../imports/worldcover_clip.tif"
+OUTPUT_TIF = "../src/imports/worldcover_clip.tif"
  
 BASE_URL = f"https://esa-worldcover.s3.amazonaws.com/{VERSION}/{YEAR}/map"
 
@@ -63,12 +63,13 @@ def tiles_for_bbox(west, south, east, north, step=3):
     return ids
 
 
-def get_tile_data(urls):
+def get_tile_data(urls, bbox):
     """
     This function retrieves all of the world cover tiles associated with the URL links in the given parameter
 
     Parameters:
         urls (list[str]): A list of AWS bucket links associated with world cover tiles
+        bbox (tuple[float]): A bounding box described by coordinates
     
     Returns:
         list[tuple]: A dictionary containing the raster data from each of the world cover tiles. 
@@ -78,7 +79,7 @@ def get_tile_data(urls):
         # Open a URL stream with rasterio
         # does not require making an API request 
         with rasterio.open(url) as src:
-            window = from_bounds(*BBOX, transform=src.transform)
+            window = from_bounds(*bbox, transform=src.transform)
             window = window.round_offsets().round_lengths()
 
             # skip tiles that don't actually intersect (can happen at edges)

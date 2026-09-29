@@ -278,4 +278,6 @@ def categorize_steepness(gdf):
     print("---------------------------")
 
     gdf['slope_category'] = reprojected_gdf['slope_category']
+    gdf = gdf[gdf['slope_category'] != 'steep'] # Exclude all of the geometries that were categorized as steep
+    
     return gdf

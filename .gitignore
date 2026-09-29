@@ -1,8 +1,11 @@
+# Environment Files
 .venv
 .env
+
 .pytest_cache
 .python-version
 .DS_Store
 
+# Miscellaneous files
 **/__pycache__/
 **/imports/

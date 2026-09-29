@@ -15,7 +15,7 @@ Introduction to the program here
    getting_started/index
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Features
 
    features/index
