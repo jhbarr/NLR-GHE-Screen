@@ -15,8 +15,7 @@ can have a tag attached to it in the form {'amenity': 'parking'}
 
 Tags of Interest
 ----------------
-All tag information was retrieved from the OpenStreetMap wiki:
-.. _Tag Information: https://wiki.openstreetmap.org/wiki/Map_features
+All tag information was retrieved from the OpenStreetMap wiki: https://wiki.openstreetmap.org/wiki/Map_features
 
 For querying park locations and other greenspaces
 
