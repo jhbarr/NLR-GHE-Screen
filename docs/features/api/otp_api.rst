@@ -24,7 +24,7 @@ There is different rate limits based on the type of user account that you have
    - Academics / users with .edu email passwords are limited to 250 API calls in a 24-hour period
    - Non-academics are strictly limited to only 50 API calls in 24-hours
    
-Additionally, the maximum query size differs based on which database you are querying. For our purposes, we will be using the SRTMGL1 database/
+Additionally, the maximum query size differs based on which database you are querying. For our purposes, we will be using the SRTMGL1 database
    - This database has a maximum query area of 450,000 km^2 per single API call
 
 

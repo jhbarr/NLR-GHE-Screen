@@ -1,12 +1,13 @@
 import rasterio
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
 from rasterio.mask import mask
 from rasterio.warp import Resampling, calculate_default_transform, reproject
 
 
-IMPORT_DIR = 'imports/'
+IMPORT_DIR = Path(__file__).parent.parent / '..' / 'imports'
 
 # ---------------------------------------------------------------------------
 # Load and Reproject Data
@@ -27,7 +28,7 @@ def load_elevation_data(gdf):
     """
     # Attempt to open the raster data that should be downloaded in the local imports/ folder
     try:
-        file_path = IMPORT_DIR + 'elevation_data.tif'
+        file_path = IMPORT_DIR / 'elevation_data.tif'
         elevation_src = rasterio.open(file_path)
     except rasterio.errors.RasterioIOError as e:
         raise FileNotFoundError(f"No elevation data found: {e}")
@@ -72,7 +73,7 @@ def reproject_elevation_data(elevation_src, dst_crs, resampling=Resampling.bilin
     )
 
     # Write the new reprojected data to the imports folder
-    dst_path = IMPORT_DIR + 'reprojected_elevation_data.tif'
+    dst_path = IMPORT_DIR / 'reprojected_elevation_data.tif'
     with rasterio.open(dst_path, "w", **profile) as dst:
         for band in range(1, elevation_src.count + 1):
             reproject(
@@ -191,7 +192,7 @@ def calculate_slopes(elevation_src):
     percent_gradient = (rise_run * 100).astype("float32")
 
     profile.update(dtype="float32", nodata=np.nan)
-    dst_path = IMPORT_DIR + 'slope.tif'
+    dst_path = IMPORT_DIR / 'slope.tif'
     with rasterio.open(dst_path, "w", **profile) as dst:
         dst.write(percent_gradient, 1)
 
@@ -214,17 +215,25 @@ def categorize_geometries(gdf, clips):
                 geometry_index: (raster_data, raster_transform)
             }
     """
-
     stats = pd.DataFrame(summarize_stats(clips)).T
 
-    stats['category'] = pd.cut(
-        x=stats['median'], # The 1d array or series to be cut
-        bins=[0, 4, 8, 15, np.inf], # The list of bin edges
-        labels=['flat', 'mild', 'medium', 'steep'],
-        include_lowest=True
+    bin_to_category = {
+        "0-5%": "flat",
+        "5-10%": "mild",
+        "10-20%": "medium",
+        ">20%": "steep",
+    }
+
+    bin_cols = list(bin_to_category)
+
+    stats["category"] = (
+        stats[bin_cols]
+        .astype(float)
+        .idxmax(axis=1)
+        .map(bin_to_category)
     )
 
-    gdf['slope_category'] = stats['category']
+    gdf["slope_category"] = stats["category"]
 
 
 
@@ -249,13 +258,13 @@ def categorize_steepness(gdf):
         elevation_src=elevation_src,
         dst_crs=gdf.estimate_utm_crs(),
     )
-    reprojected_file_path = IMPORT_DIR + 'reprojected_elevation_data.tif'
+    reprojected_file_path = IMPORT_DIR / 'reprojected_elevation_data.tif'
     reprojected_elevation = rasterio.open(reprojected_file_path)
 
     # Calculate the slopes of each of the reprojected raster tiles
     # and download the crated slope raster data
     calculate_slopes(reprojected_elevation)
-    slope_file_path = IMPORT_DIR + 'slope.tif'
+    slope_file_path = IMPORT_DIR / 'slope.tif'
     slope_src = rasterio.open(slope_file_path)
 
     # Clip the slope data to the gdf's geometries

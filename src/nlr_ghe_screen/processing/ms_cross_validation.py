@@ -174,11 +174,16 @@ def cross_validate_osm_spaces(bbox, osm_spaces):
     osm_parking = osm_spaces[osm_spaces['amenity'] == 'parking'].copy()
     osm_parking = osm_parking.to_crs(osm_spaces.estimate_utm_crs())
 
+    # Quit the process if no MS footprint quadkeys can be found
     quadkeys = extract_quadkeys(bbox=bbox)
-    ms_buildings = get_ms_building_data(quadkeys=quadkeys)
+    if not quadkeys:
+        print("Unable to extract quadkeys for desired area")
+        print("---------------------------")
+        return osm_spaces
 
     # If there are no MS buildings in the area of interest
     # return nothing
+    ms_buildings = get_ms_building_data(quadkeys=quadkeys)
     if len(ms_buildings) > 0:
         ms_buildings = ms_buildings.to_crs(osm_parking.crs)
     else:
