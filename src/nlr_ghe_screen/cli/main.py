@@ -10,6 +10,7 @@ from nlr_ghe_screen.cli.parse_args import parse_arguments
 
 from nlr_ghe_screen.api.osm_api import get_overpass, OverpassError
 from nlr_ghe_screen.api.otp_api import get_opentop, OpentopError
+from nlr_ghe_screen.api.osmnx_api import get_osmnx, OXError
 
 from nlr_ghe_screen.geojson.parse_geojson import parse_api_response
 from nlr_ghe_screen.geojson.validate_geojson import validate_geojson
@@ -140,7 +141,8 @@ def main(args):
         FileNotFoundError,
         DataSourceError,
         OverpassError,
-        OpentopError
+        OpentopError,
+        OXError
     ) as exc:
          print(f"Error - {exc}")
 
