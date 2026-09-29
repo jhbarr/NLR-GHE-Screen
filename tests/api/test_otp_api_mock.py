@@ -82,7 +82,7 @@ class TestSuccessfulRequests:
     def test_get_otp_success(self, mocker):
         data = load_mock_data_bytes()
         response = make_response(mocker, status_code=200, content=data)
-        mock_get = mocker.patch("scripts.otp_api.requests.get", return_value=response)
+        mock_get = mocker.patch("nlr_ghe_screen.api.otp_api.requests.get", return_value=response)
 
         get_opentop(bbox=TEST_BBOX, api_key=TEST_API_KEY)
 
@@ -106,7 +106,7 @@ class TestHTTPErrorClassification:
 
     def test_400_raises_bad_request_error(self, mocker):
         response = make_response(mocker, status_code=400, text="400 Bad Request")
-        mocker.patch("scripts.otp_api.requests.get", return_value=response)
+        mocker.patch("nlr_ghe_screen.api.otp_api.requests.get", return_value=response)
 
         with pytest.raises(OpentopBadRequestError):
             run_opentop_query(params={})
@@ -114,7 +114,7 @@ class TestHTTPErrorClassification:
 
     def test_401_raises_unauthorized_error(self, mocker):
         response = make_response(mocker, status_code=401, text="401 Unauthorized Access")
-        mocker.patch("scripts.otp_api.requests.get", return_value=response)
+        mocker.patch("nlr_ghe_screen.api.otp_api.requests.get", return_value=response)
 
         with pytest.raises(OpentopUnauthorizedRequestError):
             run_opentop_query(params={})
@@ -122,14 +122,14 @@ class TestHTTPErrorClassification:
 
     def test_204_raises_nodata_error(self, mocker):
         response = make_response(mocker, status_code=204, text="204 No Data")
-        mocker.patch("scripts.otp_api.requests.get", return_value=response)
+        mocker.patch("nlr_ghe_screen.api.otp_api.requests.get", return_value=response)
 
         with pytest.raises(OpentopNoDataError):
             run_opentop_query(params={})
 
     def test_500_raises_internal_error(self, mocker):
         response = make_response(mocker, status_code=500, text="500 Internal Error")
-        mocker.patch("scripts.otp_api.requests.get", return_value=response)
+        mocker.patch("nlr_ghe_screen.api.otp_api.requests.get", return_value=response)
 
         with pytest.raises(OpentopInternalError):
             run_opentop_query(params={})
@@ -137,7 +137,7 @@ class TestHTTPErrorClassification:
 
     def test_unexpected_raises_generic_error(self, mocker):
         response = make_response(mocker, status_code=406, text="400 Bad Request")
-        mocker.patch("scripts.otp_api.requests.get", return_value=response)
+        mocker.patch("nlr_ghe_screen.api.otp_api.requests.get", return_value=response)
 
         with pytest.raises(OpentopError):
             run_opentop_query(params={})
@@ -155,7 +155,7 @@ class TestClientSideError:
 
     def test_request_timeout(self, mocker):
         mock_get = mocker.patch(
-            "scripts.otp_api.requests.get", 
+            "nlr_ghe_screen.api.otp_api.requests.get", 
             side_effect=requests.exceptions.Timeout("Timed Out")
         )
 
@@ -167,7 +167,7 @@ class TestClientSideError:
 
     def test_request_timeout(self, mocker):
         mock_get = mocker.patch(
-            "scripts.otp_api.requests.get", 
+            "nlr_ghe_screen.api.otp_api.requests.get", 
             side_effect=requests.exceptions.ConnectionError("Refused")
         )
 

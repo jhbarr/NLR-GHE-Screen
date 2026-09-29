@@ -8,13 +8,16 @@ from nlr_ghe_screen.api.osm_api import (
     build_overpass_query,
     run_overpass_query,
     get_overpass,
+    get_overpass_no_splitting,
     get_count,
+    split_bbox,
     OverpassError,
     OverpassTooLargeError,
     OverpassRateLimitedError,
     OverpassServerBusyError,
     OverpassBadQueryError,
     OverpassConnectionError,
+    OverpassTimeoutError
 )
 
 TEST_BBOX = (47.4810, -122.4597, 47.7341, -122.2244)  # south, west, north, east
@@ -22,7 +25,7 @@ TEST_BBOX = (47.4810, -122.4597, 47.7341, -122.2244)  # south, west, north, east
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Helper functions - Loading mock data
 # ---------------------------------------------------------------------------
 
 def make_response(mocker, status_code=200, json_data=None, text="", json_error=False):
@@ -44,11 +47,40 @@ def load_mock_data():
     with open(file_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
+def load_mock_count_data():
+    count_data = {
+        "elements": [
+            {"type": "count", "id": 0,
+                "tags": {"nodes": "12", "ways": "34", "relations": "1", "total": "47"}}
+        ]
+    }
+    return count_data
+
 
 @pytest.fixture(autouse=True)
 def no_real_sleep(mocker):
     """Prevent tests from actually waiting through backoff delays."""
-    return mocker.patch("scripts.osm_api.time.sleep")
+    return mocker.patch("nlr_ghe_screen.api.osm_api.time.sleep")
+
+
+
+# ---------------------------------------------------------------------------
+# Helper functions - Splitting bbox information
+# ---------------------------------------------------------------------------
+
+def make_element(el_id, el_type="way"):
+    """Minimal Overpass element."""
+    return {"type": el_type, "id": el_id, "tags": {"name": f"element-{el_id}"}}
+ 
+ 
+def make_data(*elements, **meta):
+    """Minimal Overpass data response body."""
+    return {"generator": "mock", "elements": list(elements), **meta}
+
+def bbox_str(bbox):
+    """The bbox exactly as build_overpass_query interpolates it."""
+    south, west, north, east = bbox
+    return f"{south},{west},{north},{east}"
 
 
 
@@ -94,9 +126,9 @@ class TestSuccessfulRequests:
     def test_get_overpass_success(self, mocker):
         data = load_mock_data()
         response = make_response(mocker, status_code=200, json_data=data)
-        mock_post = mocker.patch("scripts.osm_api.requests.post", return_value=response)
+        mock_post = mocker.patch("nlr_ghe_screen.api.osm_api.requests.post", return_value=response)
  
-        result = get_overpass(bbox=TEST_BBOX)
+        result = get_overpass_no_splitting(bbox=TEST_BBOX)
  
         elements = result.get("elements", [])
         assert elements[0]["tags"]["name"] == "Stratton Commons"
@@ -114,7 +146,7 @@ class TestSuccessfulRequests:
             ]
         }
         response = make_response(mocker, status_code=200, json_data=count_data)
-        mocker.patch("scripts.osm_api.requests.post", return_value=response)
+        mocker.patch("nlr_ghe_screen.api.osm_api.requests.post", return_value=response)
  
         count = get_count(bbox=TEST_BBOX)
  
@@ -123,7 +155,7 @@ class TestSuccessfulRequests:
  
     def test_get_count_handles_empty_elements(self, mocker):
         response = make_response(mocker, status_code=200, json_data={"elements": []})
-        mocker.patch("scripts.osm_api.requests.post", return_value=response)
+        mocker.patch("nlr_ghe_screen.api.osm_api.requests.post", return_value=response)
  
         count = get_count(bbox=TEST_BBOX)
  
@@ -142,14 +174,14 @@ class TestHTTPErrorClassification:
 
     def test_400_raises_bad_query_error(self, mocker):
         response = make_response(mocker, status_code=400, text="Query parse error near line 3")
-        mocker.patch("scripts.osm_api.requests.post", return_value=response)
+        mocker.patch("nlr_ghe_screen.api.osm_api.requests.post", return_value=response)
  
         with pytest.raises(OverpassBadQueryError):
             get_overpass(bbox=TEST_BBOX)
 
     def test_400_does_not_retry(self, mocker):
         response = make_response(mocker, status_code=400, text="bad query")
-        mock_post = mocker.patch("scripts.osm_api.requests.post", return_value=response)
+        mock_post = mocker.patch("nlr_ghe_screen.api.osm_api.requests.post", return_value=response)
  
         with pytest.raises(OverpassBadQueryError):
             get_overpass(bbox=TEST_BBOX)
@@ -159,7 +191,7 @@ class TestHTTPErrorClassification:
     @pytest.mark.parametrize("status", [502, 503, 504])
     def test_5xx_raises_server_busy_after_retries(self, mocker, status):
         response = make_response(mocker, status_code=status)
-        mock_post = mocker.patch("scripts.osm_api.requests.post", return_value=response)
+        mock_post = mocker.patch("nlr_ghe_screen.api.osm_api.requests.post", return_value=response)
  
         with pytest.raises(OverpassServerBusyError):
             run_overpass_query("dummy query", max_retries=3)
@@ -168,7 +200,7 @@ class TestHTTPErrorClassification:
  
     def test_429_raises_rate_limited_after_retries(self, mocker):
         response = make_response(mocker, status_code=429)
-        mock_post = mocker.patch("scripts.osm_api.requests.post", return_value=response)
+        mock_post = mocker.patch("nlr_ghe_screen.api.osm_api.requests.post", return_value=response)
  
         with pytest.raises(OverpassRateLimitedError):
             run_overpass_query("dummy query", max_retries=3)
@@ -177,7 +209,7 @@ class TestHTTPErrorClassification:
  
     def test_unexpected_status_raises_generic_overpass_error(self, mocker):
         response = make_response(mocker, status_code=418)
-        mocker.patch("scripts.osm_api.requests.post", return_value=response)
+        mocker.patch("nlr_ghe_screen.api.osm_api.requests.post", return_value=response)
  
         with pytest.raises(OverpassError):
             run_overpass_query("dummy query", max_retries=1)
@@ -197,7 +229,7 @@ class TestEmbeddedRemarkErrors:
     def test_timeout_remark_raises_too_large(self, mocker):
         body = {"remark": "runtime error: Query timed out in \"query\" at line 5"}
         response = make_response(mocker, status_code=200, json_data=body)
-        mocker.patch("scripts.osm_api.requests.post", return_value=response)
+        mocker.patch("nlr_ghe_screen.api.osm_api.requests.post", return_value=response)
  
         with pytest.raises(OverpassTooLargeError):
             get_overpass(bbox=TEST_BBOX)
@@ -206,7 +238,7 @@ class TestEmbeddedRemarkErrors:
         data = load_mock_data()
         assert "remark" not in data  # sanity check on the fixture
         response = make_response(mocker, status_code=200, json_data=data)
-        mocker.patch("scripts.osm_api.requests.post", return_value=response)
+        mocker.patch("nlr_ghe_screen.api.osm_api.requests.post", return_value=response)
  
         result = get_overpass(bbox=TEST_BBOX)
         assert "elements" in result
@@ -221,18 +253,18 @@ class TestClientSideErrors:
  
     def test_requests_timeout_raises_too_large_error(self, mocker):
         mock_post = mocker.patch(
-            "scripts.osm_api.requests.post",
+            "nlr_ghe_screen.api.osm_api.requests.post",
             side_effect=requests.exceptions.Timeout("timed out"),
         )
  
-        with pytest.raises(OverpassTooLargeError):
+        with pytest.raises(OverpassTimeoutError):
             get_overpass(bbox=TEST_BBOX)
 
         mock_post.assert_called_once()
 
     def test_connection_error_retries_then_raises(self, mocker):
         mock_post = mocker.patch(
-            "scripts.osm_api.requests.post",
+            "nlr_ghe_screen.api.osm_api.requests.post",
             side_effect=requests.exceptions.ConnectionError("refused"),
         )
  
@@ -261,7 +293,7 @@ class TestRetryMechanics:
         good_response = make_response(mocker, status_code=200, json_data=data)
  
         mock_post = mocker.patch(
-            "scripts.osm_api.requests.post",
+            "nlr_ghe_screen.api.osm_api.requests.post",
             side_effect=[bad_response, good_response],
         )
  
@@ -269,3 +301,138 @@ class TestRetryMechanics:
  
         assert result["elements"][0]["tags"]["name"] == "Stratton Commons"
         assert mock_post.call_count == 2
+
+
+
+# ---------------------------------------------------------------------------
+# Test - Query Splitting Functionality
+# ---------------------------------------------------------------------------
+
+class TestQuerySplit:
+    """
+    Tests the mechanics of probing the API for query count and splitting a large query 
+    """
+
+    # ----- Split bbox functionality ---------------
+
+    def test_split_bbox_halves_cover_original(self):
+        """
+        The two halves must tile the parent: no gap, no overlap, nothing outside
+        """
+        south, west, north, east = TEST_BBOX
+        a, b = split_bbox(TEST_BBOX)
+ 
+        # Together they span the whole parent
+        assert min(a[0], b[0]) == south
+        assert min(a[1], b[1]) == west
+        assert max(a[2], b[2]) == north
+        assert max(a[3], b[3]) == east
+ 
+        # They share exactly one edge (lat split or lon split)
+        lat_split = a[1] == b[1] and a[3] == b[3]
+        lon_split = a[0] == b[0] and a[2] == b[2]
+        assert lat_split != lon_split  # exactly one axis was split
+        if lat_split:
+            assert a[2] == b[0]
+        else:
+            assert a[3] == b[1]
+
+
+    # ----- No split necessary ---------------
+ 
+    def test_small_count_runs_single_data_query(self, mocker):
+        mock_count = mocker.patch("nlr_ghe_screen.api.osm_api.get_count", return_value=10)
+        mock_run = mocker.patch(
+            "nlr_ghe_screen.api.osm_api.run_overpass_query",
+            return_value=make_data(make_element(1), make_element(2)),
+        )
+ 
+        result = get_overpass(TEST_BBOX, max_elements=100)
+ 
+        mock_count.assert_called_once_with(TEST_BBOX)
+        mock_run.assert_called_once()
+        assert bbox_str(TEST_BBOX) in mock_run.call_args.args[0]
+        assert [e["id"] for e in result["elements"]] == [1, 2]
+
+
+    # ----- Splitting ---------------
+
+    def test_recursive_split_multiple_levels(self, mocker):
+        """
+        Full box too big, first half too big again, everything else fits
+        """
+        half_a, half_b = split_bbox(TEST_BBOX)
+        quarter_aa, quarter_ab = split_bbox(half_a)
+ 
+        counts = {
+            TEST_BBOX: 5000,
+            half_a: 800,
+            quarter_aa: 40,
+            quarter_ab: 40,
+            half_b: 60,
+        }
+        mocker.patch("nlr_ghe_screen.api.osm_api.get_count", side_effect=lambda bbox: counts[bbox])
+ 
+        def fake_run(query, **kwargs):
+            for bbox, el_id in ((quarter_aa, 1), (quarter_ab, 2), (half_b, 3)):
+                if bbox_str(bbox) in query:
+                    return make_data(make_element(el_id))
+            raise AssertionError(f"Unexpected data query: {query}")
+ 
+        mock_run = mocker.patch("nlr_ghe_screen.api.osm_api.run_overpass_query", side_effect=fake_run)
+ 
+        result = get_overpass(TEST_BBOX, max_elements=100)
+ 
+        assert mock_run.call_count == 3
+        assert sorted(e["id"] for e in result["elements"]) == [1, 2, 3]
+
+
+    def test_data_query_too_large_error_triggers_split(self, mocker):
+        """Count looked fine, but the real query still exceeded the budget."""
+        mocker.patch("nlr_ghe_screen.api.osm_api.get_count", return_value=10)
+        mock_run = mocker.patch(
+            "nlr_ghe_screen.api.osm_api.run_overpass_query",
+            side_effect=[
+                OverpassTooLargeError("data query timed out"),  # full bbox
+                make_data(make_element(1)),                     # half A
+                make_data(make_element(2)),                     # half B
+            ],
+        )
+ 
+        result = get_overpass(TEST_BBOX, max_elements=100)
+ 
+        assert mock_run.call_count == 3
+        assert {e["id"] for e in result["elements"]} == {1, 2}
+
+
+    def test_duplicate_elements_across_halves_are_deduplicated(self, mocker):
+        """A way crossing the split line is returned by both halves."""
+        shared = make_element(99)
+        mocker.patch("nlr_ghe_screen.api.osm_api.get_count", side_effect=[5000, 50, 50])
+        mocker.patch(
+            "nlr_ghe_screen.api.osm_api.run_overpass_query",
+            side_effect=[
+                make_data(make_element(1), shared),
+                make_data(shared, make_element(2)),
+            ],
+        )
+ 
+        result = get_overpass(TEST_BBOX, max_elements=100)
+ 
+        ids = [e["id"] for e in result["elements"]]
+        assert sorted(ids) == [1, 2, 99]
+        assert ids.count(99) == 1
+
+
+    # -- Depth limit and error propagation ----------------------------------
+ 
+    def test_max_depth_exceeded_raises_too_large(self, mocker):
+        mock_count = mocker.patch("nlr_ghe_screen.api.osm_api.get_count", return_value=10**6)
+        mock_run = mocker.patch("nlr_ghe_screen.api.osm_api.run_overpass_query")
+ 
+        with pytest.raises(OverpassTooLargeError):
+            get_overpass(TEST_BBOX, max_elements=100, max_depth=2)
+ 
+        # Depth 0 -> depth 1 -> depth 2, then the depth-2 box refuses to split
+        assert mock_count.call_count == 3
+        mock_run.assert_not_called()

@@ -8,7 +8,7 @@ from pyogrio.errors import DataSourceError
 
 from nlr_ghe_screen.cli.parse_args import parse_arguments
 
-from nlr_ghe_screen.api.osm_api import get_overpass, OverpassError
+from nlr_ghe_screen.api.osm_api import get_overpass, get_overpass_no_splitting, OverpassError
 from nlr_ghe_screen.api.otp_api import get_opentop, OpentopError
 from nlr_ghe_screen.api.osmnx_api import get_osmnx, OXError
 
@@ -101,7 +101,7 @@ def run(args):
     """
     bbox = parse_arguments(args)
 
-    result = get_overpass(bbox=bbox)
+    result = get_overpass_no_splitting(bbox=bbox)
 
     gdf = parse_api_response(data=result)
 
