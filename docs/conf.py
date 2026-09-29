@@ -4,19 +4,6 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 # -- Path Setup --------------------------------------------------------------
-import os
-import sys
-from pathlib import Path
-
-sys.path.insert(0, os.path.abspath("../"))
-
-# import scripts.main
-import scripts.ms_cross_validation
-import scripts.validate_geojson
-import scripts.parse_args
-import scripts.osm_api
-import scripts.parse_geojson
-import scripts.geometry_manipulation
 
 
 # -- Project information -----------------------------------------------------
