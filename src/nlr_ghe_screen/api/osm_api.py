@@ -11,6 +11,10 @@ MAX_ELEMENTS_PER_QUERY = 3500 # Subject to change based on live results
 MAX_SPLIT_DEPTH = 4
 REQUEST_PAUSE = 1.0
 
+"""
+NOTE: the ~ tag filters are unanchored regexes, so landuse~"grass" and other such queries also matches any value 
+contaning that string. Use ^(a|b)$ if we want exact matches 
+"""
 
 # ---------------------------------------------------------------------------
 # Exceptions
@@ -56,14 +60,36 @@ class OverpassTimeoutError(OverpassError):
 # ---------------------------------------------------------------------------
 
 def classify_and_raise(response):
-    """
-    Inspect a resopnse from the Overpass API and raise appropriate errors
+    """Check an Overpass API response and raise the matching error if it failed
 
-    Parameters:
-        response (dict): The response body from the Overpass API
-    
+    Inspects the HTTP status code first, then for a 200 response, the JSON body is checked because overpass can return
+    a 200 status with an error described in a ``remark`` field in the JSON response body.
+
+    The following checks are executed:
+
+        - 429 -> :class:`OverpassRateLimitedError`
+        - 502, 503, 504 -> :class:`OverpassServerBusyError`
+        - 400 -> :class:`OverpassBadQueryError` (includes the first 500 characters
+          of the response text)
+        - any other non-200 status -> :class:`OverpassError`
+        - 200 with a body that is not valid JSON -> :class:`OverpassError`
+        - 200 with a timeout or memory remark -> :class:`OverpassTooLargeError`
+        - 200 with any other remark -> :class:`OverpassBadQueryError`
+
+    Args:
+        response (requests.Response): The HTTP response returned by the Overpass API.
+ 
     Returns:
-        data (dict): The response body of the Overpass API call - in the event that no errors were raised
+        dict: The parsed JSON body of the response, if no error was detected.
+ 
+    Raises:
+        OverpassRateLimitedError: If the status code is 429.
+        OverpassServerBusyError: If the status code is 502, 503, or 504.
+        OverpassBadQueryError: If the status code is 400, or the body contains an
+            unrecognized remark.
+        OverpassTooLargeError: If the body contains a timeout or memory remark.
+        OverpassError: If the status code is unexpected, or a 200 response is not
+            valid JSON.
     """
     status = response.status_code
 
@@ -114,17 +140,31 @@ def classify_and_raise(response):
 # ---------------------------------------------------------------------------
 
 def build_overpass_query(bbox, mode="data", query_timeout = DEFAULT_QUERY_TIMEOUT):
-    """
-    Build an Overpass QL query for the given bounding box
+    """Build an Overpass QL query for the given bounding box
 
-    Parameters:
-        bbox (Tuple[float]): Coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
-        mode (str): "data" for the full output of all the geometries from the query
-                    "count" for the 'probe' to see how many geometries will be returned
-        query_timeout (int): The value for the Overpass timeout setting
+    The query selects ways and relations within the bounding box that match any of the following
+    tag filters:
+
+        - ``leisure`` matching ``park|dog_park``
+        - ``landuse`` matching ``recreation_ground|meadow|grass|farmland``
+        - ``natural`` matching ``wood|grassland|scrub|heath|wetland``
+        - ``amenity`` equal to ``parking``
     
+    The output clause depends on ``mode``: ``count`` returns only a summary element with the total number of matches.
+    While any other value returns the full geometry and tags of each space. 
+
+    Args:
+        bbox (tuple[float, float, float, float]): The bounding box as
+            ``(south, west, north, east)``, i.e. ``(lat_min, lon_min, lat_max,
+            lon_max)``.
+        mode (str, optional): ``"data"`` for the full output of all matching
+            geometries, or ``"count"`` for a lightweight probe of how many
+            geometries would be returned. Defaults to ``"data"``.
+        query_timeout (int, optional): The value, in seconds, for the Overpass
+            ``timeout`` setting. Defaults to ``DEFAULT_QUERY_TIMEOUT``.
+ 
     Returns:
-        str: The Overpass QL query string
+        str: The Overpass QL query string.
     """
 
     south, west, north, east = bbox
@@ -155,29 +195,46 @@ def build_overpass_query(bbox, mode="data", query_timeout = DEFAULT_QUERY_TIMEOU
     """
 
 def run_overpass_query(query, query_timeout=DEFAULT_QUERY_TIMEOUT, max_retries=3, backoff_base=2.0):
-    """
-    Exeecure an Overpass QL query with retries for certain failures. Additionally,
-    raise any specific Overpass errors for certain conditions
-    
-    Note - The query will return any spaces that overlap with the bounding box, not necessarily all of the spaces
-    that are strictly within the bounding box. 
+    """Execute an Overpass QL query, retrying on transient failures
 
-    Parameters:
-        query (str): A constructed Overpass QL query text
-        query_timeout (int): The value for the Overpass timeout setting
-        max_retries (int): retry attempts for rate limit/server busy cases 
-        backoff_base (float): exponential backoff base - how long the program will wait to retry API call
+    Sends a query to the Overpass API and checks the response with :func:`classify_and_raise`. Rate limiting, 
+    server overload, and connection failures are retried with exponential backoff. If all retries fail, the last 
+    error raised is propogated
 
+    Queries that are too large or malformed are not retried. 
+
+    Note:
+        The query returns any spaces that overlap the bounding box, not only the spaces that lie 
+        strictly within it.
+
+    Args:
+        query (str): A constructed Overpass QL query string.
+        query_timeout (int, optional): The Overpass ``timeout`` setting, in seconds,
+            which is also used to derive the HTTP timeout. Defaults to
+            ``DEFAULT_QUERY_TIMEOUT``.
+        max_retries (int, optional): The maximum number of attempts for transient
+            failures (rate limiting, server overload, connection errors). Defaults
+            to 3.
+        backoff_base (float, optional): The base of the exponential backoff, in
+            seconds, that controls how long to wait before the next attempt.
+            Defaults to 2.0.
+ 
     Returns:
-        response (dict): The API JSON response body
-
+        dict: The parsed JSON body of the API response.
+ 
     Raises:
-        OverpassTooLargeError: query exceeded time/memory budget - split
-            the bbox and retry the halves.
-        OverpassBadQueryError: malformed query - fix the query, don't retry.
-        OverpassRateLimitedError / OverpassServerBusyError /
-        OverpassConnectionError: transient - raised only after retries
-            are exhausted.
+        OverpassTooLargeError: If the query exceeded the server's time or memory
+            budget. Split the bounding box and retry the halves.
+        OverpassBadQueryError: If the query is malformed. Fix the query; do not retry.
+        OverpassTimeoutError: If the HTTP request timed out client-side before
+            Overpass responded.
+        OverpassRateLimitedError: If the rate limit is still being hit after all
+            retries.
+        OverpassServerBusyError: If the server is still overloaded after all
+            retries.
+        OverpassConnectionError: If the connection still fails after all retries.
+        OverpassError: For unexpected status codes, invalid JSON, or other request
+            errors.
     """
     http_timeout = query_timeout + HTTP_TIMEOUT_BUFFER
     last_error = None
@@ -196,11 +253,11 @@ def run_overpass_query(query, query_timeout=DEFAULT_QUERY_TIMEOUT, max_retries=3
 
             return classify_and_raise(response)
         
-        except (OverpassTooLargeError, OverpassBadQueryError):
+        except (OverpassTooLargeError, OverpassBadQueryError, OverpassError):
             # Nothing to be retried
             raise 
 
-        except (OverpassRateLimitedError, OverpassServerBusyError) as e:
+        except (OverpassRateLimitedError, OverpassServerBusyError, OverpassTimeoutError) as e:
             last_error = e
 
         except requests.exceptions.Timeout:
@@ -230,14 +287,17 @@ def run_overpass_query(query, query_timeout=DEFAULT_QUERY_TIMEOUT, max_retries=3
 # ---------------------------------------------------------------------------
 
 def split_bbox(bbox):
-    """
-    Split a Overpass QL bounding box in half along its longer side
+    """Split a Overpass QL bounding box in half along its longer side
 
-    Parameters:
-        bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
-    
+    Args:
+        bbox (tuple[float, float, float, float]): The bounding box as
+            ``(south, west, north, east)``, i.e. ``(lat_min, lon_min, lat_max,
+            lon_max)``.
+ 
     Returns:
-        Tuple[Tuple[float]]: Two coordinate bounding boxes in the form (lat_min, lon_min, lat_max, lon_max)
+        tuple[tuple[float, float, float, float], tuple[float, float, float, float]]:
+            Two bounding boxes in the same ``(south, west, north, east)`` form,
+            ordered south then north, or west then east.
     """
     south, west, north, east = bbox
 
@@ -253,13 +313,41 @@ def split_bbox(bbox):
 
 
 def fetch_bbox(bbox, collected, depth, query_timeout=DEFAULT_QUERY_TIMEOUT, max_elements=MAX_ELEMENTS_PER_QUERY, max_depth=MAX_SPLIT_DEPTH):
-    """
-    Recursively fetch a bounding box, splitting whenever it is too large
+    """Recursively fetch a bounding box, splitting whenever it is too large
 
-    Parameters:
-        bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
-        collected (dict): Mimics the structure of the 'elements' section of Overpass API JSON body. Is used to collect the responses of the different
-            Overpass sub-queries
+    The process for each bounding box is:
+
+        1. Run a count probe (see :func:`get_count`). If the count is 0, stop.
+        2. If the count is within ``max_elements``, run the full data query.
+        3. If the count exceeds ``max_elements``, or the full query exceeds the
+           server's limits, split the box with :func:`split_bbox` and repeat for each
+           half at ``depth + 1``.
+
+    Args:
+        bbox (tuple[float, float, float, float]): The bounding box as
+            ``(south, west, north, east)``, i.e. ``(lat_min, lon_min, lat_max,
+            lon_max)``.
+        collected (dict): Accumulator for results, modified in place. It has the
+            form ``{"elements": {(type, id): element}, "meta": dict | None}``, where
+            ``"meta"`` holds the non-``elements`` fields of the first response
+            received (such as version and generator information).
+        depth (int): The current recursion depth. Start at 0.
+        query_timeout (int, optional): The Overpass ``timeout`` setting for the full
+            data query, in seconds. Defaults to ``DEFAULT_QUERY_TIMEOUT``.
+        max_elements (int, optional): The largest element count that will be fetched
+            in a single query before splitting. Defaults to
+            ``MAX_ELEMENTS_PER_QUERY``.
+        max_depth (int, optional): The maximum number of times a box may be split.
+            Defaults to ``MAX_SPLIT_DEPTH``.
+ 
+    Returns:
+        None: Results are stored in ``collected``.
+ 
+    Raises:
+        OverpassTooLargeError: If the bounding box still needs splitting once
+            ``max_depth`` has been reached.
+        OverpassError: Any other error from :func:`run_overpass_query` that is not
+            handled by splitting.
     """
     indent = " " * depth
     too_large = False
@@ -314,15 +402,27 @@ def fetch_bbox(bbox, collected, depth, query_timeout=DEFAULT_QUERY_TIMEOUT, max_
 # ---------------------------------------------------------------------------
 
 def get_count(bbox, query_timeout=10):
-    """
-    Function to probe the database to see how many geometry objects will be returned by query call
-
-    Parameters:
-        bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
-        query_timeout (int): The Overpass database timeout
-    
+    """Probe Overpass for how many geometries a query would return.
+ 
+    Runs the query in ``"count"`` mode, which returns a single summary element
+    instead of the full geometries, making it much cheaper than a data query. This
+    is used to decide whether a bounding box is small enough to fetch in one request.
+ 
+    Args:
+        bbox (tuple[float, float, float, float]): The bounding box as
+            ``(south, west, north, east)``, i.e. ``(lat_min, lon_min, lat_max,
+            lon_max)``.
+        query_timeout (int, optional): The Overpass ``timeout`` setting, in seconds.
+            Defaults to 10.
+ 
     Returns:
-        int: The number of geometry elements that would be returned
+        int: The number of geometry elements the data query would return, or 0 if
+            the response contains no elements.
+ 
+    Raises:
+        OverpassError: Any of the errors described in :func:`run_overpass_query`,
+            including :class:`OverpassTooLargeError` if even the probe exceeds the
+            server's limits.
     """
     query = build_overpass_query(bbox, mode="count", query_timeout=query_timeout)
     data = run_overpass_query(query, query_timeout=query_timeout)
@@ -335,29 +435,38 @@ def get_count(bbox, query_timeout=10):
 
 
 def get_overpass(bbox, query_timeout=DEFAULT_QUERY_TIMEOUT, max_elements=MAX_ELEMENTS_PER_QUERY, max_depth=MAX_SPLIT_DEPTH):
-    """
-    Fetch full geometry and tags from the Overpass API given the bounding box area
-    
-    Parameters:
-        bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
-    
-    Returns:
-        dict: The Overpass API JSON response body
+    """Fetch full geometry and tags from the Overpass API given the bounding box area, splitting the bbox if needed
 
+    Uses :func:`fetch_bbox` to recursively split large areas into smaller bounding boxes so that no single request
+    exceeds the Overpass limits, then merges all results into one response. 
+    
+    Args:
+        bbox (tuple[float, float, float, float]): The bounding box as
+            ``(south, west, north, east)``, i.e. ``(lat_min, lon_min, lat_max,
+            lon_max)``.
+        query_timeout (int, optional): The Overpass ``timeout`` setting for each
+            data query, in seconds. Defaults to ``DEFAULT_QUERY_TIMEOUT``.
+        max_elements (int, optional): The largest element count fetched in a single
+            query before the box is split. Defaults to ``MAX_ELEMENTS_PER_QUERY``.
+        max_depth (int, optional): The maximum number of times a box may be split.
+            Defaults to ``MAX_SPLIT_DEPTH``.
+ 
+    Returns:
+        dict: The merged Overpass API JSON response body, with the de-duplicated
+            results in the ``"elements"`` list.
+ 
     Raises:
-        OverpassTooLargeError: split the bbox and retry the halves.
-        OverpassBadQueryError: fix the query - this is a bug, not a
+        OverpassTooLargeError: If the area is still too large after ``max_depth``
+            splits.
+        OverpassBadQueryError: If the query is malformed. This is a bug, not a
             transient condition.
-        OverpassError (and subclasses): other failures after retries
-            are exhausted.
+        OverpassError: Any other failure, once retries are exhausted.
     """
     print("\n---------------------------")
     print("Post - Overpass API Request")
 
     collected = {'elements': {}, 'meta': None}
     fetch_bbox(bbox, collected, depth=0, query_timeout=query_timeout, max_elements=max_elements, max_depth=max_depth)
-
-    print(collected)
 
     data = dict(collected['meta'] or {})
     data['elements'] = list(collected['elements'].values())
@@ -368,21 +477,29 @@ def get_overpass(bbox, query_timeout=DEFAULT_QUERY_TIMEOUT, max_elements=MAX_ELE
     return data
 
 def get_overpass_no_splitting(bbox, query_timeout=DEFAULT_QUERY_TIMEOUT):
-    """
-    Fetch full geometry and tags from the Overpass API given the bounding box area
+    """Fetch full geometries and tags for a bounding box in a single request.
+ 
+    Sends one data query for the whole bounding box, with no count probe and no
+    splitting. It is simpler and faster than :func:`get_overpass` for small areas,
+    but fails with :class:`OverpassTooLargeError` if the area is too large for the
+    server to handle in one query.
         
-    Parameters:
-        bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
-    
+    Args:
+        bbox (tuple[float, float, float, float]): The bounding box as
+            ``(south, west, north, east)``, i.e. ``(lat_min, lon_min, lat_max,
+            lon_max)``.
+        query_timeout (int, optional): The Overpass ``timeout`` setting, in seconds.
+            Defaults to ``DEFAULT_QUERY_TIMEOUT``.
+ 
     Returns:
-        dict: The Overpass API JSON response body
-
+        dict: The Overpass API JSON response body.
+ 
     Raises:
-        OverpassTooLargeError: split the bbox and retry the halves.
-        OverpassBadQueryError: fix the query - this is a bug, not a
+        OverpassTooLargeError: If the area is too large for a single query. Split
+            the bounding box and retry the halves, or use :func:`get_overpass`.
+        OverpassBadQueryError: If the query is malformed. This is a bug, not a
             transient condition.
-        OverpassError (and subclasses): other failures after retries
-            are exhausted.
+        OverpassError: Any other failure, once retries are exhausted.
     """
     print("\n---------------------------")
     print("Post - Overpass API Request")

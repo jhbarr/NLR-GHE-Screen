@@ -10,15 +10,19 @@ from shapely.ops import unary_union
 # ---------------------------------------------------------------------------
 
 def create_overlapping_groups(df):
-    """
-    This function handles creating a new dataframe of combined geometries based on pre-determined
-    groups of geometries
+    """Group rows whose geometries overlap or touch, directly through a chain
 
-    Parameters:
-        df (GeoDataframe): A GeoDataframe with only polygon and multipolygon geometries
+    Use spatial index and depth first search to find connected clusters of geometries. Two geometries are
+    connected if they intersect. Every row ends up in exactly one group, and a geometry that does not intersect
+    anything else forms a group of its own. 
 
+    Args:
+        df (geopandas.GeoDataFrame): Rows with only Polygon and MultiPolygon
+            geometries and a default ``RangeIndex``.
+ 
     Returns:
-        groups (list[str]): A list of lists, each index in each sublist corresponds with a geometry that overlaps all others in the group
+        list[set]: One set per group, each holding the index values of the rows in
+            that group.
     """
     # Make sure geometries are valid
     df["geometry"] = df.geometry.make_valid()
@@ -65,15 +69,25 @@ def create_overlapping_groups(df):
 
 
 def combine_overlapping_groups(df):
-    """
-    This function combines Geodataframe rows based on whether they contain overlapping geometries
-    It returns a new and condensed dataframe based on these overlaps
+    """Merge rows with overlapping geometries into single rows. 
 
-    Parameters:
-        df (GeoDataframe): A GeoDataframe with only polygon and multipolygon geometries
+    Finds groups of overlapping or touching geometries (see :func:`create_overlapping_groups`)
+    and collapses each group into one row and conglomerated shape. The new row is of the form:
 
+        - **geometry**: the union of all geometries in the group.
+        - **every other column**: the unique, non-null values in the group, converted
+          to strings and joined with ``"; "``. A column that is entirely null within
+          a group becomes an empty string.
+        
+    Attributes are joined as text, so all non-geometry columns will become strings regardless of their original 
+    dtype. 
+
+    Args:
+        df (geopandas.GeoDataFrame): Rows with only Polygon and MultiPolygon
+            geometries.
+ 
     Returns:
-        result (GeoDataframe): A new df with combined row entries and geometries
+        geopandas.GeoDataFrame: One row per group of overlapping geometries.
     """
     # To avoid any issues with indexing the rows 
     df = df.reset_index(drop=True)
@@ -134,17 +148,25 @@ def combine_overlapping_groups(df):
 # ---------------------------------------------------------------------------
 
 def classify_geometry(row):
-    """
-    Assigns a single category label to a row based on its OSM tags.
-    Order matters: this determines priority when a geometry could 
-    plausibly belong to multiple categories (e.g., a tagged protected 
-    park should be treated as 'protected', not 'green_space').
+    """Assign a category label to a row / geometry based on its OSM tag
 
-    Parameters:
-        row (GeoSeries): A single row from a Geodataframe
+    Checks the tags in priority order and returns the first match, so a geometry that could fall into several
+    categories gets teh highest priority one. Missing tag columns are treated as empty. 
 
+    The categories are:
+
+        1. ``'protected'``
+        2. ``'parking'``
+        3. ``'greenspace'``
+        4. ``'other'``
+
+    Args:
+        row (pandas.Series): A single row from a GeoDataFrame, expected to contain
+            some of the OSM tag columns ``boundary``, ``amenity``, ``leisure``,
+            ``landuse``, and ``natural``.
+ 
     Returns:
-        category (Str): A string categorizing the row 
+        str: One of ``"protected"``, ``"parking"``, ``"green_space"``, or ``"other"``.
     """
     boundary = row.get('boundary')
     boundary_tags = [
@@ -182,14 +204,19 @@ def classify_geometry(row):
 # ---------------------------------------------------------------------------
 
 def _polygonal_only(geom):
-    """
-    Return only the (Multi)Polygon part of a geometry, or None if there is none
+    """Extracts only the polygon parts of a geometry
+
+    Invalid geometries are repaired with``make_valid`` first, which can turn a single geometry into a collection of mixed
+    types. Polygons and MultiPolygons are returned as they are. For any other
+    multi-part geometry, the function recurses into each part, keeps the polygonal
+    pieces, and merges them with a union
     
-    Parameters:
-        geom (Geometry object): A Geopandas geometry object 
-    
+    Args:
+        geom (shapely.geometry.base.BaseGeometry | None): The geometry to filter.
+ 
     Returns:
-        Geometry object: A unary union (combined) geometry object 
+        shapely.geometry.Polygon | shapely.geometry.MultiPolygon | None: The
+            polygonal part of ``geom``, or ``None`` if it has none. 
     """
     if geom is None or geom.is_empty:
         return None
@@ -214,14 +241,18 @@ def _polygonal_only(geom):
 
 
 def _clean(gdf):
-    """
-    Make geometries valid, strip non-polygon parts, drop empties
-    
-    Parameters:
-        gdf (Geopandas Dataframe): A Dataframe containing geospatial data
-
+    """Reduce a GeoDataFrame to valid, non-empty polygon geometries.
+ 
+    Applies :func:`_polygonal_only` to every geometry (repairing invalid ones and
+    stripping any non-polygon parts), then drops rows whose geometry is missing or
+    empty. The input is not modified.
+ 
+    Args:
+        gdf (geopandas.GeoDataFrame): Data with a ``geometry`` column.
+ 
     Returns:
-        Geopandas Dataframe: A Dataframe containing geospatial data
+        geopandas.GeoDataFrame: A copy containing only rows with valid, non-empty
+            Polygon or MultiPolygon geometries.
     """
     gdf = gdf.copy()
     gdf["geometry"] = gdf.geometry.apply(_polygonal_only)
@@ -235,18 +266,31 @@ def _clean(gdf):
 # ---------------------------------------------------------------------------
 
 def combine_geometries(df):
-    """
-    Splits the dataframe into mutually-exclusive categories (protected areas,
-    parking lots, green spaces, etc.), combines overlapping geometries within
-    each category, and ensures higher-priority categories "claim" any
-    spatially overlapping area so different categories never get merged
-    together.
+    """Combine overlapping geometries within mutually exclusive categories. 
 
-    Parameters:
-        df (GeoDataframe): A GeoDataframe with only polygon and multipolygon geometries
+    Classifies each geometry with :func:`classify_geometry`, the processes the categories from highest to lowest 
+    priority: ``protected``, ``parking``,
+    ``green_space``, ``other``. For each category:
+ 
+        1. The area already claimed by higher-priority categories is subtracted, so
+           categories never overlap and are never merged together.
+        2. Unless the category is excluded, overlapping geometries within it are
+           merged with :func:`combine_overlapping_groups` and added to the output.
+        3. The category's remaining area is added to the claimed area.
 
+    ``protected`` is excluded from the output but still claims its area, so
+    lower-priority categories are cut back around protected land instead of
+    overlapping it. 
+
+    Args:
+        df (geopandas.GeoDataFrame): Rows with only Polygon and MultiPolygon
+            geometries and OSM tag columns such as ``boundary``, ``amenity``,
+            ``leisure``, ``landuse``, and ``natural``.
+ 
     Returns:
-        result (GeoDataframe): A new df with combined row entries and geometries
+        geopandas.GeoDataFrame: The combined geometries from all non-excluded
+            categories, with the input's CRS. If nothing remains, an empty
+            GeoDataFrame with the same columns as ``df`` is returned.
     """
     print("\n---------------------------")
     print("Combining overlapping geometries")

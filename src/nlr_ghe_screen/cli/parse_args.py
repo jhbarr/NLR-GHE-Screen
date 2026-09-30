@@ -8,11 +8,13 @@ from pyproj import CRS
 # ---------------------------------------------------------------------------
 
 def verify_bbox_coordinates(bbox):
-    """
-    Ensures that the coordinates in the provided bounding box are in the correct CRS
-    And raises a ValueError if they are not
+    """Ensures that the coorinates in the ``bbox`` are in the correect CRS: ``EPSG:4326``
+
+    Unpacks the coordinates from ``bbox`` and checks that they are in the correct ranges for proper coordinate
+    degrees. The function raises a ValueError if the coordinates do not pass all of these checks. Otherwise, 
+    nothing is returned.
     
-    Parameters:
+    Args:
         bbox (Tuple[float]): A four float tuple of the form (lat_min, long_min, lat_max, long_max)
     
     Raises:
@@ -43,28 +45,46 @@ def verify_bbox_coordinates(bbox):
 # ---------------------------------------------------------------------------  
         
 def parse_arguments(args):
-    """
-    Parses the user inputted command line arguments and runs checks on them.
-    The user can input a --bbox flag and the four coordinates describing the south, west, north, east corners of a area bounding box.
-    Or they can enter a --file flag and the relative path of an URBANopt GoeJSON file 
-    The URBANopt file must have at least an entry of the form:
-        {
-            "type": "Feature",
-            "properties": {"type": "bounding box"},
-            "geometry": {"type": "Polygon", "coordinates": []}
-        }
+    """Parse and validate the command line arguments, returning a bounding box
 
-    Parameters:
-        args (Str): The user inputted command line arguments
+    The user musts provide exactly one of two mututally exclusive options:
+
+        - ``--bbox SOUTH WEST NORTH EAST``: Four coordinates, in EPSG:4326 (decimal
+          degrees), describing the corners of the area's bounding box.
+        - ``--file PATH``: The path to an URBANopt GeoJSON file. The file must
+          contain exactly one feature whose ``type`` property is ``"bounding box"``,
+          for example::
+ 
+              {
+                  "type": "Feature",
+                  "properties": {"type": "bounding box"},
+                  "geometry": {"type": "Polygon", "coordinates": []}
+              }
+ 
+          The bounding box is taken from the extent of that feature's geometry.
     
+    In both cases, the resulting coordinates are checked with :func:`verify_bbox_coordinates`` before being returned. 
+
+    Args:
+        args (list[str]): The raw command line arguments, without the program name
+            (e.g. ``sys.argv[1:]``).
+ 
     Returns:
-        bbox (Tuple[float]): A tuple containing the coordinates of the bounding box 
-    
+        tuple[float, float, float, float]: The bounding box as
+            ``(south, west, north, east)``.
+ 
     Raises:
-        ValueError: If the bbox coordinates are not in the correct CRS (EPSG:4326), or if an input file does not have a bounding box feature
-        SystemExit: If the arguments are in incorrect form or if there are arguments missing
-        FileNotFound: If the user's input file cannot be found
-        DataSourceError: If the user's input file is is not a proper spatial file
+        SystemExit: If the arguments are malformed, if neither or both of ``--bbox``
+            and ``--file`` are given, or if ``--help`` is requested (raised by
+            ``argparse``).
+        FileNotFoundError: If the path given with ``--file`` does not point to an
+            existing file.
+        pyogrio.errors.DataSourceError: If the file given with ``--file`` cannot be
+            read as a spatial file.
+        ValueError: If the input file does not contain exactly one ``bounding box``
+            feature, or if the coordinates fail validation in
+            :func:`verify_bbox_coordinates` (e.g. they are not valid EPSG:4326
+            values).
     """
     parser = argparse.ArgumentParser(description="Program CLI")
     group = parser.add_mutually_exclusive_group(required=True)
@@ -117,6 +137,10 @@ def parse_arguments(args):
         # Open the provided file 
         # And check that it meets the URBANopt GeoJSON standards
         gdf = gpd.read_file(parsed.file) # Will raise DataSourceError if file is not proper spatial file
+
+        # Check that there is a type column
+        if 'type' not in gdf.columns:
+            raise ValueError("No such column 'type' in gdf")
 
         # Retrieve the coordinates from the GeoJSON file
         matches = gdf.loc[gdf['type'] == 'bounding box']

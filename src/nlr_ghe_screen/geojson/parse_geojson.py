@@ -8,17 +8,32 @@ from shapely.ops import unary_union, polygonize
 # ---------------------------------------------------------------------------
 
 def create_geometry_object(element):
-    """
-    Converts an OSM way or relation into a Shapely geometry that can be input to a Geopandas Dataframe
+    """Convert a single Overpass API element into a Shapely polygon geometry
 
-    Parameters:
-        element (dict): A single element from an Overpass API response
+    Handles two element types, both of which must include inline coordinates:
 
+        - **way**: Built into a ``Polygon`` if it has at least 3 coordinates and is
+          closed (first coordinate equals last). Open ways return ``None``.
+        - **relation**: The geometry of each member way is turned into a line, the
+          lines are merged, and ``polygonize`` builds polygons from the closed rings
+          they form. One polygon is returned as a ``Polygon`` and several as a
+          ``MultiPolygon``. Member roles (outer/inner) are not used, so the result
+          is whatever closed rings the member lines happen to form.
+        
+    Coordinates are read as ``(lon, lat)``.
+
+    Args:
+        element (dict): A single element from the ``elements`` list of an Overpass
+            API response.
+ 
     Returns:
-        shape (shapely.geometry): Either a polygon, multipolygon or way
-
+        shapely.geometry.Polygon | shapely.geometry.MultiPolygon | None: The polygon
+            geometry for the element, or ``None`` if no polygon can be built (an open
+            way, missing geometry, or a relation whose members form no closed rings).
+ 
     Raises:
-        TypeError: If the function receives type of geometry that it does not know how to handle
+        TypeError: If the element's ``type`` is neither ``"way"`` nor ``"relation"``
+            (for example, a ``"node"``).
     """
     # Check if the type of the element is a way geometry 
     if element["type"] == "way":
@@ -78,14 +93,26 @@ def create_geometry_object(element):
 # ---------------------------------------------------------------------------
 
 def create_dataframe(data):
-    """
-    This function takes a JSON response object from the Overpass API call and careates a GeoDataframe from the data. 
+    """Build a GeoDataframe from a raw Overpass API JSON response
 
-    Parameters:
-        data (dict): A JSON object that is the response provided by the Overpass API
-    
+    Converts each element in ``data['elements']`` to a geometry with :func:`create_geometry_object` and 
+    creates one row per element. Each row holds the element's OSM tags as columns as well as a ``geometry`` column.
+    Elements that cannot be turned into a polygon are skipped. The resulting GeoDataframe use3s the CRS 
+    ``EPSG:4326`` 
+
+    Args:
+        data (dict): The parsed JSON body of an Overpass API response, containing an
+            ``elements`` list.
+ 
     Returns:
-        gdf (GeoDataframe): A GeoDataframe with the fields from the Overpass API response body
+        geopandas.GeoDataFrame: One row per element with a valid polygon geometry,
+            with the element's tags as columns.
+ 
+    Raises:
+        ValueError: If the response contains no elements, or if none of the elements
+            produce a valid geometry.
+        TypeError: If an element has a type other than ``"way"`` or ``"relation"``
+            (raised by :func:`create_geometry_object`).
     """
     # Get the elements of the Overpass API response
     elements = data.get('elements', [])
@@ -126,18 +153,31 @@ def create_dataframe(data):
 
 
 def normalize_osmnx_gdf(gdf):
-    """
-    This funciton takes a Geodataframe returned by OSMNX and parses it into a dataframe format that can be used downstream
+    """Clean an OSMNX GeoDataframe so it matches the format used downstream
 
-    Parameters:
-        Parameters:
-        gdf (GeoDataFrame): Output of ox.features_from_bbox (MultiIndex of element/id)
+    Applies the following siteps to the output of ``ox.features_from_bbox``:
+
+        1. Drops nodes, keeping only ways and relations. This only happens if the
+           index has an ``element`` level, so frames without the OSMnx MultiIndex
+           still work.
+        2. Keeps only ``Polygon`` and ``MultiPolygon`` geometries, discarding points
+           and lines such as open ways.
+        3. Flattens the index to a fresh ``RangeIndex``. The OSM element type and id
+           are discarded rather than kept as columns.
+        4. Ensures the CRS is ``EPSG:4326``, setting it if missing or reprojecting
+           if it differs.
+    
+    Args:
+        gdf (geopandas.GeoDataFrame): Output of ``ox.features_from_bbox``, normally
+            indexed by a MultiIndex of ``(element, id)``.
  
     Returns:
-        GeoDataFrame: Polygon/MultiPolygon features only, with a fresh RangeIndex
+        geopandas.GeoDataFrame: Polygon and MultiPolygon features only, with a fresh
+            ``RangeIndex`` and CRS ``EPSG:4326``.
  
     Raises:
-        ValueError: If the input is empty or no polygon geometries remain
+        ValueError: If the input is ``None`` or empty, or if no polygon geometries
+            remain after filtering.
     """
     POLYGON_TYPES = ("Polygon", "MultiPolygon")
 
@@ -168,21 +208,38 @@ def normalize_osmnx_gdf(gdf):
 
 
 def parse_api_response(data, is_df=False):
-    """
-    This function will take a JSON response object from the Overpass API call and add all necessary fields for
-    the URBANopt GeoJSON format while also isolating the other fields relevant to the query
+    """Parse OSM data into a GeoDataframe in the URBANopt GeoJSON format
 
-    Parameters:
-        data (dict): A JSON object that is the response provided by the Overpass API or an OSMNX response dataframe
-        is_df (bool): Tells the function whether the provided data is a JSON object or a precompiled GeoDataframe
-    
+    Accepts either a raw Overpass API JSON response or an OSMNX GeoDataframe, converts it to a GeoDataframe
+    of polygon features, and then:
+
+        - Keeps only the columns ``name``, ``landuse``, ``leisure``, ``natural``,
+          ``boundary`` (used to detect protected areas), ``amenity`` (used to detect
+          parking), and ``geometry``. All other tags are dropped, and any of these
+          columns missing from the source are added as NaN.
+        - Adds the fields required by the URBANopt schema: ``type`` is set to
+          ``"District System"`` and ``district_system_type`` to ``"Central Hot
+          Water"``.
+        - Replaces missing ``name`` values with an empty string, since the URBANopt
+          schema does not allow null names.
+ 
+    The result uses ``EPSG:4326``.
+
+    Args:
+        data (dict | geopandas.GeoDataFrame): An Overpass API JSON response if
+            ``is_df`` is ``False``, or an OSMnx GeoDataFrame if ``is_df`` is ``True``.
+        is_df (bool, optional): Whether ``data`` is already a GeoDataFrame from OSMnx
+            rather than raw Overpass JSON. Defaults to ``False``.
+ 
     Returns:
-        gdf (GeoDataframe): A GeoDataframe with all necessary fields
-
+        geopandas.GeoDataFrame: Polygon features with the columns above plus
+            ``type`` and ``district_system_type``.
+ 
     Raises:
-        ValueError: If the API data that is passed to the function is empty
-            or if there are no valid geometries found while parsing
-        TypeError: If the function receives type of geometry that it does not know how to handle
+        ValueError: If the input data is empty, or if no valid geometries are found
+            while parsing.
+        TypeError: If an Overpass element has a type that cannot be converted to a
+            geometry (raised by :func:`create_geometry_object`).
     """
     print("\n---------------------------")
     print("Parsing API Results")

@@ -28,14 +28,19 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 
 def aggregate_metadata(df):
-    """
-    This function aggregates descriptive metadata about the queried areas 
+    """Aggregates metadata about the total area covered by greenspace and parking lots in ``df``
 
-    Parameters:
-        df (GeoDataframe): The Dataframe that holds all of the information about queried OSM data
+    Initially categorizes the geometries in the provided ``df`` based on their atrributes into either the
+    ``greenspace`` category or the ``parking`` category. It then calculates the total area covered by all
+    geometries in each category in km^2. 
+
+    It returns this information in a dictionary
+
+    Args:
+        df (geopandas.GeoDataframe): The Dataframe that holds all of the information about queried OSM data
     
     Returns:
-        metadata (dict): Dictionary containing all descriptive metadata
+        dict: Dictionary containing all descriptive metadata
     """
     categories = ['green_space', 'parking']
 
@@ -59,11 +64,19 @@ def aggregate_metadata(df):
 
 
 def export_results(df, response):
-    """
-    Exports all of the necessary information to the exports folder 
+    """Export all information and descriptive metadata compiled by the entire program workflow
 
-    Parameters:
-        df (Geopandas Dataframe)
+    Three main files are exported to the local ``src/exports`` folder. The three files are:
+
+        1. ``ghe_locations.geojson``: Includes the geometries of each of the compiled greenspaces and parking lots
+            that are considered locations for possible GHE installation sites. Additionally, it contains all of the 
+            OSM attributes of each geometry
+        2. ``ghe_location_metadata.json``: Contains the total area covered by greenspaces and parking lots in km^2
+        3. ``overpass_api_metadata``: Metadata embedded in the Overpass API response. Record needs to be kept for proper
+            credit attribution in research papers. 
+
+    Args:
+        df (geopandas.GeoDataframe): The GeoDataframe that includes the final compiled GHE location data
         response (dict): The Overpass API JSON response body
     """
     export_dir = Path(__file__).parent.parent / ".." / "exports"
@@ -96,7 +109,7 @@ def run(args):
     This function is responsible for executing the entire end to end flow of the program and all of 
     the internal functions that handle each step of the API calling, parsing, exportation process
 
-    Parameters:
+    Args:
         args (list[Str]): The arguments to the program
     """
     bbox = parse_arguments(args)
@@ -105,7 +118,7 @@ def run(args):
 
     gdf = parse_api_response(data=result)
 
-    validate_geojson(data=gdf, is_dataframe=True)
+    validate_geojson(data=gdf)
 
     gdf = cross_validate_osm_spaces(bbox=bbox, osm_spaces=gdf) # ** Optional Step **
 

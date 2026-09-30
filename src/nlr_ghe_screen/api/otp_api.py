@@ -39,17 +39,29 @@ class OpentopConnectionError(OpentopError):
 # ---------------------------------------------------------------------------
 
 def classify_and_raise(response):
-    """
-    Inspect a resopnse from the Overpass API and raise appropriate errors
+    """Check an OpenTopography API response and raise the matching error if it failed
 
-    Parameters:
-        response (dict): The response body from the Overpass API
-    
+    The following checks are executed:
+
+        - 204 -> :class:`OpentopNoDataError`
+        - 500 -> :class:`OpentopInternalError`
+        - 400 -> :class:`OpentopBadRequestError` (includes the first 500 characters
+          of the response text)
+        - 401 -> :class:`OpentopUnauthorizedRequestError`
+        - any other non-200 status -> :class:`OpentopError`
+
+    Args:
+        response (requests.Response): The HTTP response returned by the OpenTopography API.
+ 
     Returns:
-        data (str): The response body of the Opentop API call - in the event that no errors were raised
-
+        dict: The parsed JSON body of the response, if no error was detected.
+ 
     Raises:
-        OpentopError: Various kinds of Opentop API errors based on the status of the API response
+        OpentopNoDataError: If status code is 204
+        OpentopInternalError: If status code is 500
+        OpentopBadRequestError: If status caoade is 400
+        OpentopUnauthorizedRequestError: If status code is 401
+        OpentopError: For any unexpected, non-200 status code
     """
     status = response.status_code
 
@@ -88,15 +100,25 @@ def classify_and_raise(response):
 # ---------------------------------------------------------------------------
 
 def build_opentop_query(bbox, api_key):
-    """
-    This function creates the parameters for the Opentop API call
+    """Constructs the parameters required by an OpenTopography API call
 
-    Parameters:
-        bbox (Tuple[float]): Coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
+    The required parameters are: 
+
+        south, north, east, west: Four coordinates describing the area where the elevation data should be 
+            retrieved from
+        api_key: Each request to the OpenTopography API requires a key
+
+    Args:
+        bbox (tuple[float, float, float, float]): The bounding box as
+            ``(south, west, north, east)``, i.e. ``(lat_min, lon_min, lat_max,
+            lon_max)``
         api_key (str): An OpenTopography API key
         
     Returns:
         params (dict): The parameters for the Opentop API call
+    
+    Raises:
+        ValueError: If an API key is not provided
     """
     south, west, north, east = bbox
 
@@ -118,16 +140,20 @@ def build_opentop_query(bbox, api_key):
 
 def run_opentop_query(params):
     """
-    Execute Opentop API query. Raises any specific OpentopError conditions 
+    Execute Opentop API query and raise any specific OpentopError conditions 
 
-    Parameters:
+    Sends constructed parameters from `params` to the OpenTopography API and checks the response with :func:`classify_and_raise`.
+    No retry mechanics are currently implemented. Therefore, any error is propogated upwards.
+
+    Args:
         params (dict): A dictionary containing the necessary Opentop API parameters, including an API key
 
     Returns:
         response (str): The content of the API response body (must be accessed in GTiff format)
     
     Raises:
-        OpentopError (and subclasses): other failures
+        OpentopConnectionError: If there was an error en countered connecting to the API
+        OpentopError (and subclasses): If any error encountered while querying the API
     """
     http_timeout =  HTTP_TIMEOUT_BUFFER
 
@@ -146,6 +172,9 @@ def run_opentop_query(params):
     except requests.exceptions.RequestException as e:
         raise OpentopError(f"Unexpected request error: {e}")
 
+    except OpentopError:
+        raise
+
 
 
 # ---------------------------------------------------------------------------
@@ -153,18 +182,20 @@ def run_opentop_query(params):
 # ---------------------------------------------------------------------------
 
 def get_opentop(bbox, api_key):
-    """
-    Create and execute query on OpenTopography API, fetch the response body, analyze any errors
-    and export the response to a GTiff file 
+    """Fetch the elevation raster data from OpenTopography within the area described by bbox
 
-    Parameters:
-        bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
-    
-    Returns:
-        None
+    Executes an API query using ``bbox`` and the ''api_key``. Once all error checks are passed,
+    then the data is exported to ``elevation_data.tif' in the local ``src/imports`` folder, for later
+    use in elevation processing functions.
+
+    Args:
+        bbox (tuple[float, float, float, float]): The bounding box as
+            ``(south, west, north, east)``, i.e. ``(lat_min, lon_min, lat_max,
+            lon_max)``
+        api_key (str): An OpenTopography API key
     
     Raises:
-        OpentopError (and subclasses): other failures
+        OpentopError (and subclasses): Any of the errors described in the :func:`classify_and_raise` function
     """
     print("\n---------------------------")
     print("Get - OpenTopography API Request")

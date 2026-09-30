@@ -14,17 +14,22 @@ IMPORT_DIR = Path(__file__).parent.parent / '..' / 'imports'
 # ---------------------------------------------------------------------------
 
 def load_elevation_data(gdf):
-    """
-    Loads elevation raster data from local imports folder
-
-    Parameters
-        gdf (Geopandas Dataframe): A GeoDataframe containing geometries within the bounds of the elevation raster data
+    """Open the local elevation raster file and check if against the vector data's CRS
     
-    Returns
-        rasterio.io.DatasetReader: The elevation raster data
+    Looks for a 'elevation_data.tif' file located in the src/imports folder within the project repository and opens
+    it with rasterio. The GeoDataframe is only used to compare coordinate reference systems (CRS) to ensure that they are the same. 
 
-    Raises:
-        FileNotFoundError: If the elevation raster data cannot be found
+    Args:
+        gdf (geopandas.GeoDataFrame): Geometries that fall within the bounds of the
+            elevation raster. Only its CRS is inspected.
+    
+    Returns:
+        rasterio.io.DatasetReader: An open, read-mode handle to the elevation raster.
+            The caller is responsible for closing it.
+
+     Raises:
+        FileNotFoundError: If ``elevation_data.tif`` cannot be found or opened in the
+            imports folder.
     """
     # Attempt to open the raster data that should be downloaded in the local imports/ folder
     try:
@@ -41,15 +46,25 @@ def load_elevation_data(gdf):
 
 
 def reproject_elevation_data(elevation_src, dst_crs, resampling=Resampling.bilinear):
-    """
-    Reproject a raster to a new crs and write that information to a local file
+    """Reproject an elevation raster to a new crs and write that information to disk
+
+    Every band of the source raster is warped into the new 'dst_crs' and written to a file named 
+    'reprojected_elevation_data.tif' in the src/imports folder. This overwrites any preexisting file of the same
+    name in that location. 
+
+    This reprojection is typically run before calculations regarding slope, since slope requires a projected CRS with
+    linear units rather than coordinate degrees
     
-    Parameters
-        elevation_src (rasterio.io.DatasetReader): The elevation raster data
-        dst_crs (pyproj.crs.CRS): The new CRS that the raster data is to be projected to
-        resampling : bilinear is a good default for continuous data like elevation.
-                        Never use nearest for slope work if you can avoid it; it
-                        produces blocky, noisy slopes.
+    Args:
+        elevation_src (rasterio.io.DatasetReader): The source elevation raster.
+        dst_crs (pyproj.crs.CRS): The CRS the raster should be reprojected to.
+        resampling (rasterio.enums.Resampling, optional): Resampling method used when
+            warping. Defaults to ``Resampling.bilinear``, which suits continuous data
+            like elevation. Avoid ``nearest`` for slope work, as it produces blocky,
+            noisy slopes.
+ 
+    Returns:
+        None: The result is written to ``imports/reprojected_elevation_data.tif``.
     """
     transform, width, height = calculate_default_transform(
         elevation_src.crs,
@@ -96,20 +111,23 @@ def reproject_elevation_data(elevation_src, dst_crs, resampling=Resampling.bilin
 # ---------------------------------------------------------------------------
 
 def clip_raster_to_shapes(elevation_src, gdf):
-    """
-    Iterates through each geometry in the provided GeoDataframe and attaches the raster data that the
-    geometry contains / touches
+    """Clip raster pixels to each geometry in the GeoDataframe
 
-    Parameters:
-            gdf (Geopandas Dataframe): A GeoDataframe containing geometries within the bounds of the elevation raster data
-            elevation_src (rasterio.io.DatasetReader): The elevation raster data
+    For every geometry, it extracts the raster cells that the geometry contains or touches and returns them as a masked numpy array 
+    cropped to the geometry's bounding box. Geometries that do not overlap the raster completely are skipped with a warning message. 
+
+    The raster and the geometries must share the same CRS. 
+    
+
+    Args:
+        elevation_src (rasterio.io.DatasetReader): The raster to clip (band 1 is used).
+        gdf (geopandas.GeoDataFrame): Geometries to clip the raster with.
     
     Returns:
-        gdf (Geopandas Dataframe): A GeoDataframe containing geometries within the bounds of the elevation raster data
-        clips (dict): A dictionary of the form
-            {
-                geometry_index: (raster_data, raster_transform)
-            }
+        (geopandas.GeoDataFrame): The input GeoDataFrame, unchanged
+        clips (dict): (dict): Maps each geometry's index to a tuple of
+              ``(masked_array, affine_transform)``, i.e.
+              ``{geometry_index: (raster_data, raster_transform)}``.
     """
     clips = {}
     for idx, geom in gdf.geometry.items():
@@ -136,19 +154,27 @@ def clip_raster_to_shapes(elevation_src, gdf):
 # ---------------------------------------------------------------------------
 
 def summarize_stats(clips):
-    """
-    This funciton iterates through all of the geometries in the provided clips dictionary and 
-    aggregates informational stats about the raster data associated with those geometries
+    """Summarize the slope distribution within each clipped geometry
 
-    Parameters:
-        clips (dict): A dictionary of the form
-            {
-                geometry_index: (raster_data, raster_transform)
-            }
+    For each geometry, takes the unmasked slope values (percent gradient) and computes the share of pixels that fall into each
+    slope bin. Plus the mean, median, and pixel count. 
+
+    The bins are 0-5%, 5-10%, 10-20%, and >20%. Bin values are the percentage of
+    valid pixels in that bin, rounded to the nearest whole number (0-100).
+
+    Args:
+    clips (dict): Clipped slope data in the form
+        ``{geometry_index: (raster_data, raster_transform)}``, as produced by
+        :func:`clip_raster_to_shapes`.
     
     Returns:
-        stats (dict): A dictionary containing the min, max, mean, median, num_pixels values of the raster data
-            associated with each of the individual geometries
+        dict: Maps each geometry index to a dictionary with the keys:
+ 
+            - ``"0-5%"``, ``"5-10%"``, ``"10-20%"``, ``">20%"`` (float): Percentage of
+              the geometry's valid pixels in each slope bin.
+            - ``"mean"`` (float): Mean slope value.
+            - ``"median"`` (float): Median slope value.
+            - ``"num_pixels"`` (int): Number of valid pixels used.
     """
     stats = {}
     for idx, (arr, transform) in clips.items():
@@ -174,12 +200,22 @@ def summarize_stats(clips):
 
 
 def calculate_slopes(elevation_src):
-    """
-    Calculate the slope angle of each of the individual raster tiles and writes that information to a new
-    raster file in the local imports folder
+    """Calculate the percent-gradient slope for an elevation raster and save it
 
-    Parameters:
-        elevation_src (rasterio.io.DatasetReader): The elevation raster data
+    Computes the elevation gradient percentage for all cells in the provided raster and the resulting data
+    is written to 'slope.tif' in the src/imports folder. This overwrites an preexisting files of the same name.
+    A slope angle in degrees is also calculated internally. 
+
+    The raster must be in a projected CRS with linear units (see :func:`reproject_elevation_data`), otherwise the cell sizes
+    and elevation values will be in different units and slope values will be nonsensical. 
+
+    Args:
+        elevation_src (rasterio.io.DatasetReader): Elevation raster in a projected
+            CRS. Band 1 is used, and masked cells become NaN.
+    
+    Returns:
+        numpy.ndarray: A float32 2D array of percent gradient values with the same
+            shape as the input raster. Nodata cells are NaN.
     """
     dem = elevation_src.read(1, masked=True).astype(float).filled(np.nan)
     dx, dy = elevation_src.res
@@ -205,15 +241,27 @@ def calculate_slopes(elevation_src):
 # ---------------------------------------------------------------------------
 
 def categorize_geometries(gdf, clips):
-    """
-    Assign a category to each of the geometries in the provided GeoDataframe based on how steep they are
+    """Assign each geometry a steepness category based on its dominant slope bin.
 
-    Parameters:
-        gdf (Geopandas Dataframe): A GeoDataframe containing geometries within the bounds of the elevation raster data
-        clips (dict): A dictionary of the form
-            {
-                geometry_index: (raster_data, raster_transform)
-            }
+    Summariizes the sloep data for each geometry (see :func:`summarize_stats) and picks the slop bin that contains the largest share
+    of that geometry's pixels. The bin is then mapped to this category. 
+
+        - 0-5%   -> ``"flat"``
+        - 5-10%  -> ``"mild"``
+        - 10-20% -> ``"medium"``
+        - >20%   -> ``"steep"``
+    
+    The result is then stored in a new 'slope_category' column the gdf. Geometries missing from clips get NaN. This function
+    modifies gdf in place and does not return anything.
+
+    Args:
+        gdf (geopandas.GeoDataFrame): Geometries to categorize. Modified in place.
+        clips (dict): Clipped slope data in the form
+            ``{geometry_index: (raster_data, raster_transform)}``, as produced by
+            :func:`clip_raster_to_shapes`.
+ 
+    Returns:
+        None: ``gdf`` is updated in place with a ``slope_category`` column.
     """
     stats = pd.DataFrame(summarize_stats(clips)).T
 
@@ -242,8 +290,21 @@ def categorize_geometries(gdf, clips):
 # ---------------------------------------------------------------------------
 
 def categorize_steepness(gdf):
-    """
-    This function will categorize all of the geometries in the provided gdf based on how steep they are
+    """Categorize geometries by steepness and drop the steep ones
+
+    This function runs the full slope workflow:
+
+        1. Load the local elevation raster.
+        2. Reproject it to the UTM zone estimated from ``gdf`` so slopes can be
+           calculated in linear units.
+        3. Calculate percent-gradient slopes and save them to ``slope.tif``.
+        4. Clip the slope raster to each geometry (reprojected to the same UTM CRS).
+        5. Assign each geometry a category of flat, mild, medium, or steep.
+        6. Add the category to ``gdf`` and filter out steep geometries.
+ 
+    Intermediate rasters (``reprojected_elevation_data.tif`` and ``slope.tif``) are
+    written to the imports folder as a side effect. The returned GeoDataFrame keeps
+    its original CRS.
     
     Parameters:
         gdf (Geopandas Dataframe): A GeoDataframe containing geometries within the bounds of the elevation raster data

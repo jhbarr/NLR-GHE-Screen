@@ -163,9 +163,25 @@ def cross_validate_osm_spaces(bbox, osm_spaces):
     Eliminates all parking spaces from the data queried from OSM by cross validating it
     with building data from MS Footprint
 
-    Paramters:
-        osm_spaces (GeoDataframe): A dataframe containing all extracted OSM space data
+    Executes the entire MS Footprint cross validation workflow. First it isolates only the geometries
+    associated with parking spaces in the provided osm_spaces GeoDataframe. 
+
+        1. Extracts the MS quadkeys within the bounds of the GeoDataframe. Does not continue the procedure
+            if no quadkeys can be found
+        2. Retrieves all of the MS Footprint building data from those quadkey tiles
+        3. Overlays those building footprints on the ones from ``osm_spaces`` and isolates the instances
+            where there is more than an 80% area overlap and that have an elevation greater than 1.0
+        4. Eliminates those geometries from osm_spaces
+    
+    This modifies the original GeoDataframe ``osm_spaces`` and returns a new one without the parking structures
+
+    Args:
+        osm_spaces (Geopandas Dataframe): A dataframe containing all extracted OSM space data
         bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
+    
+    Returns:
+        geopandas.GeoDataframe: The geometries that were not found to be parking spaces that had a height elevation
+            indicating the presence of a parking structure 
     """
     print("\n---------------------------")
     print("Cross validating with MS Footprint")

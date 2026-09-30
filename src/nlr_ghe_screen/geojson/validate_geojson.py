@@ -7,13 +7,19 @@ from pathlib import Path
 # GeoJSON Validation 
 # ---------------------------------------------------------------------------
 
-def validate_geojson(data, is_dataframe=False):
-    """
-    Takes in data in the form of a JSON object (dict) and validates that it correctly matches a preset
-    GeoJSON schema (from URBANopt requirements)
+def validate_geojson(data):
+    """Validates that all of the fields required by URBANopt GeoJSON standards are present
+
+    Loads in URBANopt GeoJSON schema ``urbanopt_schema.json`` from the local ``data/`` folder. Then 
+    goes through each row in the provided GeoDataframe ``data`` and ensures that they contain the fields that 
+    are labeled as required by the schema. 
+
+    The function raises a jsonschema.ValidationError if the ``data`` does not fit the schema. Otherwise, there
+    is no return value
     
-    Parameters:
-        data (dict): The data that is to be parsed into the GeoJSON schema
+    Args:
+        data (geopandas.GeoDataframe): Contains geometry vectors and their corresponding OSM tags. 
+            To be cross checked against the URBNANopt GeoJSON schema
     
     Raises:
         ValidationError: If the resultant data does not fit the GeoJSON format
