@@ -1,6 +1,7 @@
 import geopandas as gpd
 from shapely.geometry import Polygon, LineString, MultiPolygon
 from shapely.ops import unary_union, polygonize
+import osm2geojson
 
 
 # ---------------------------------------------------------------------------
@@ -95,10 +96,8 @@ def create_geometry_object(element):
 def create_dataframe(data):
     """Build a GeoDataframe from a raw Overpass API JSON response
 
-    Converts each element in ``data['elements']`` to a geometry with :func:`create_geometry_object` and 
-    creates one row per element. Each row holds the element's OSM tags as columns as well as a ``geometry`` column.
-    Elements that cannot be turned into a polygon are skipped. The resulting GeoDataframe use3s the CRS 
-    ``EPSG:4326`` 
+    Converts the Overpass API JSON resposne into GeoJSON format using osm2geojson library and packages that
+    GeoJSON data into a geopandas.Dataframe. In the case that the JSON response is empty, a ValueError is thrown
 
     Args:
         data (dict): The parsed JSON body of an Overpass API response, containing an
@@ -111,43 +110,24 @@ def create_dataframe(data):
     Raises:
         ValueError: If the response contains no elements, or if none of the elements
             produce a valid geometry.
-        TypeError: If an element has a type other than ``"way"`` or ``"relation"``
-            (raised by :func:`create_geometry_object`).
     """
-    # Get the elements of the Overpass API response
-    elements = data.get('elements', [])
+    geojson_dict = osm2geojson.json2geojson(data)
 
-    # Check that the data is populated and not empty / null
-    if not elements:
-        raise ValueError("API response is empty")
+    if len(geojson_dict['features']) == 0:
+        raise ValueError("Overpass API response is empty")
 
-    # Go through each of the elements from the response 
-    rows = []
-    for element in elements:
+    processed_features = []
+    for feature in geojson_dict["features"]:
+        properties = dict(feature.get("properties", {}))
+        tags = properties.pop("tags", {})
 
-        # Create a geometry object that can be recognized by Geopandas
-        # from the provided coordinates in the Overpass API JSON response body
-        geometry = create_geometry_object(element)
+        processed_features.append({
+            "type": "Feature",
+            "geometry": feature.get("geometry"),
+            "properties": {**properties, **tags},
+        })
 
-        if geometry is None:
-            continue
-
-        # Create a dataframe row entry based on the elements features 
-        row = {
-            **element.get("tags", {}),
-            "geometry": geometry # Overpass API always has geometry descriptions of elements
-        }
-
-        rows.append(row)
-
-    if not rows:
-        raise ValueError("No valid geometries found")
-
-    gdf = gpd.GeoDataFrame(
-        rows,
-        geometry="geometry",
-        crs="EPSG:4326"
-    )
+    gdf = gpd.GeoDataFrame.from_features(processed_features, crs="EPSG:4326")
 
     return gdf
 
@@ -207,7 +187,41 @@ def normalize_osmnx_gdf(gdf):
     return gdf
 
 
-def parse_api_response(data, is_df=False):
+
+# ---------------------------------------------------------------------------
+# Crop Geometries
+# ---------------------------------------------------------------------------
+
+def crop_to_bbox(gdf, bbox):
+    """Crop a GeoDataframe and its geometries to a bounding box
+    
+    Accepts a geopandas.GeoDataframe and a coordinate bounding box and crops the geometries within that dataframe to the boundaries
+    of that bounding box. Additionally, the cropping only keeps the geometry types that were originally in the dataframe. Therefore,
+    if any new geometry type is created by the cropping, it will be dropped. 
+
+    Args:
+        bbox (tuple[float, float, float, float]): The bounding box as
+            ``(south, west, north, east)``, i.e. ``(lat_min, lon_min, lat_max,
+            lon_max)``
+        gdf (geopandas.GeoDataframe): The dataframe with the geometries to be cropped by the bounding box
+    
+    Returns:
+        geopandas.GeoDataframe: The new dataframe with the cropped geometries
+    """
+    south, west, north, east = bbox
+    clipped = gdf.clip((west, south, east, north), keep_geom_type=True)
+    clipped = clipped[clipped.geom_type.isin(["Polygon", "MultiPolygon"])]
+
+    return clipped
+
+
+
+
+# ---------------------------------------------------------------------------
+# Main Parse Execution
+# ---------------------------------------------------------------------------
+
+def parse_api_response(data, bbox, is_df=False):
     """Parse OSM data into a GeoDataframe in the URBANopt GeoJSON format
 
     Accepts either a raw Overpass API JSON response or an OSMNX GeoDataframe, converts it to a GeoDataframe
@@ -265,7 +279,9 @@ def parse_api_response(data, is_df=False):
     gdf['type'] = "District System"
     gdf['district_system_type'] = "Central Hot Water"
     gdf['name'] = gdf['name'].fillna('') # URBANopt schema cannot have empty name fields
-    
+
+    # Crop the GeoDataframe to the original bounding box
+    gdf = crop_to_bbox(gdf, bbox)
 
     print("Parsing Successful - All necessary data")
     print("---------------------------") 

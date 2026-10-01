@@ -253,7 +253,7 @@ def run_overpass_query(query, query_timeout=DEFAULT_QUERY_TIMEOUT, max_retries=3
 
             return classify_and_raise(response)
         
-        except (OverpassTooLargeError, OverpassBadQueryError, OverpassError):
+        except (OverpassTooLargeError, OverpassBadQueryError):
             # Nothing to be retried
             raise 
 

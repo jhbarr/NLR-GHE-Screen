@@ -4,10 +4,9 @@ import json
  
 import pandas as pd
 import geopandas as gpd
-from shapely.geometry import Point, LineString, Polygon, MultiPolygon
+from shapely.geometry import Point, Polygon, MultiPolygon
 
 from nlr_ghe_screen.geojson.parse_geojson import (
-    create_geometry_object,
     parse_api_response
 )
 
@@ -17,6 +16,8 @@ EXPECTED_COLUMNS = {
     "name", "landuse", "leisure", "natural", "boundary", "amenity",
     "geometry", "type", "district_system_type",
 }
+
+TEST_BBOX = (39.69, -105.27, 39.79, -105.16)
 
 # ---------------------------------------------------------------------------
 # Helper functions
@@ -65,60 +66,6 @@ def osmnx_gdf():
     ])
 
 
-# ---------------------------------------------------------------------------
-# Test - Create geometry from JSON
-# ---------------------------------------------------------------------------
-
-class TestGeometryParse:
-    """
-    This class tests the functionality of process of parsing different kinds of OSM geometries inclusing ways and relations
-    """
-
-    def test_way_geometry(self):
-        """
-        Test that the function correctly parses out the way geometry from the test data
-        """
-        # Load in test data
-        file_path = Path(__file__).parent / "geojson_data" / "parse_test_data.json"      
-        with open(file_path, 'r', encoding='utf-8') as file:
-            test_data = json.load(file)
-
-        # Run the parsing function on a known way geometry
-        way_geometry = test_data['elements'][0]
-        geometry = create_geometry_object(way_geometry)
-
-        assert geometry != None
-
-    def test_relation_geometry(self):
-            """
-            Test that the function correctly parses out the relation geometry from the test data
-            """
-            # Load in test data
-            file_path = Path(__file__).parent / "geojson_data" / "parse_test_data.json"
-            with open(file_path, 'r', encoding='utf-8') as file:
-                test_data = json.load(file)
-
-            # Run the parsing function on a known relation geometry
-            relation_geometry = test_data['elements'][1]
-            geometry = create_geometry_object(relation_geometry)
-
-            assert geometry != None
-
-    def test_unrecognized_geometry(self):
-        """
-        Test the handling of the case where the function encounters a geometry it is not designed to handle
-        """
-        test_data = {
-             "type": "node",
-             "geometry": [
-                  { "lat": 39.7513176, "lon": -105.2222512 }
-             ]
-        }
-
-        with pytest.raises(TypeError):
-             create_geometry_object(test_data)
-
-
 
 # ---------------------------------------------------------------------------
 # Test - Overpass API Parse
@@ -138,7 +85,7 @@ class TestAPIParse:
         with open(file_path, 'r', encoding='utf-8') as file:
             test_data = json.load(file)
 
-        gdf = parse_api_response(test_data, is_df=False)
+        gdf = parse_api_response(test_data, TEST_BBOX, is_df=False)
 
         assert len(gdf) > 0
 
@@ -157,7 +104,7 @@ class TestAPIParse:
         }
 
         with pytest.raises(ValueError):
-            gdf = parse_api_response(empty_response, is_df=False)
+            gdf = parse_api_response(empty_response, TEST_BBOX, is_df=False)
 
 
 
@@ -175,10 +122,10 @@ class TestOSMNXParse:
         """
         A valid osmnx response returns a non-empty GeoDataFrame with every expected column
         """
-        gdf = parse_api_response(osmnx_gdf, is_df=True)
+        gdf = parse_api_response(osmnx_gdf, TEST_BBOX, is_df=True)
  
         assert isinstance(gdf, gpd.GeoDataFrame)
-        assert len(gdf) == 3
+        assert len(gdf) == 2
         assert EXPECTED_COLUMNS.issubset(gdf.columns)
 
     def test_output_columns_match_exactly(self, osmnx_gdf):
@@ -188,7 +135,7 @@ class TestOSMNXParse:
         osmnx_gdf["surface"] = "grass"
         osmnx_gdf["nodes"] = [[1, 2, 3]] * len(osmnx_gdf)
  
-        gdf = parse_api_response(osmnx_gdf, is_df=True)
+        gdf = parse_api_response(osmnx_gdf, TEST_BBOX, is_df=True)
  
         assert set(gdf.columns) == EXPECTED_COLUMNS
 
@@ -196,7 +143,7 @@ class TestOSMNXParse:
         """
         The required URBANopt schema fields are set on every row
         """
-        gdf = parse_api_response(osmnx_gdf, is_df=True)
+        gdf = parse_api_response(osmnx_gdf, TEST_BBOX, is_df=True)
  
         assert (gdf["type"] == "District System").all()
         assert (gdf["district_system_type"] == "Central Hot Water").all()
@@ -210,7 +157,7 @@ class TestOSMNXParse:
             ("node", 99, Point(-105.2, 39.7), {"amenity": "parking"}),
         ])
  
-        gdf = parse_api_response(gdf_in, is_df=True)
+        gdf = parse_api_response(gdf_in, TEST_BBOX, is_df=True)
  
         assert len(gdf) == 1
         assert gdf["leisure"].iloc[0] == "park"
@@ -233,8 +180,8 @@ class TestParsePathConsistency:
         with open(file_path, 'r', encoding='utf-8') as file:
             overpass_data = json.load(file)
  
-        from_overpass = parse_api_response(overpass_data, is_df=False)
-        from_osmnx = parse_api_response(osmnx_gdf, is_df=True)
+        from_overpass = parse_api_response(overpass_data, TEST_BBOX, is_df=False)
+        from_osmnx = parse_api_response(osmnx_gdf, TEST_BBOX, is_df=True)
  
         assert set(from_overpass.columns) == set(from_osmnx.columns)
         assert from_overpass.crs == from_osmnx.crs

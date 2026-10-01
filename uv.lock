@@ -2507,6 +2507,7 @@ dependencies = [
     { name = "matplotlib", version = "3.9.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "matplotlib", version = "3.10.9", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "matplotlib", version = "3.11.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "osm2geojson" },
     { name = "osmnx", version = "2.0.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "osmnx", version = "2.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -2538,6 +2539,7 @@ requires-dist = [
     { name = "jsonschema", specifier = ">=4.25.1" },
     { name = "mapclassify", specifier = ">=2.8.1" },
     { name = "matplotlib", specifier = ">=3.9.4" },
+    { name = "osm2geojson", specifier = ">=0.3.2" },
     { name = "osmnx", specifier = ">=2.0.7" },
     { name = "pytest" },
     { name = "pytest-mock", specifier = ">=3.15.1" },
@@ -2835,6 +2837,21 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/a1/d2/4e1014173aa3c55e6a756e0e567290743a6ab33a288460374d7ef6bcd239/numpy-2.5.3-cp315-cp315t-win32.whl", hash = "sha256:f54660b0eb6b0b9f36e7fe1cdfdff472028dd0d14acd9b9b65098efbad059469", size = 6330292, upload-time = "2026-09-06T16:27:38.149Z" },
     { url = "https://files.pythonhosted.org/packages/6c/b0/ff5658a58199b7bcaad87bf260eef6713d9d42cca4e028f935b4fc5fbac6/numpy-2.5.3-cp315-cp315t-win_amd64.whl", hash = "sha256:1aad64d99730d013cfc6debafed22783b4fc5a7f4b8bc744d2d8cf7dcc880551", size = 12884918, upload-time = "2026-09-06T16:27:40.965Z" },
     { url = "https://files.pythonhosted.org/packages/fb/0b/b12a2df5d1b774bd9007a6fdff9381145b6223d37f11afc9c37ab0efd9a1/numpy-2.5.3-cp315-cp315t-win_arm64.whl", hash = "sha256:befa1ae5bd6030b3f512b43ff3fa5290bbed6b84411a44244b14adf835f5b89d", size = 10850807, upload-time = "2026-09-06T16:27:43.868Z" },
+]
+
+[[package]]
+name = "osm2geojson"
+version = "0.3.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests", version = "2.32.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "requests", version = "2.34.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "shapely", version = "2.0.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "shapely", version = "2.1.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c2/02/dbdcb5a46f46cbeee2056cf9727f6a83063d7f7fe1803cf0dd7c99df3543/osm2geojson-0.3.2.tar.gz", hash = "sha256:20d564f0dbb6e8547b61cbc2bfe915161a6bcf8d1ac65d2c58a458262df4ac15", size = 25463, upload-time = "2026-03-04T19:33:24.303Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/67/ad/f9f1d867d0d308b8506c961731410c248b5002dad5dab7419cf67080ff00/osm2geojson-0.3.2-py3-none-any.whl", hash = "sha256:1039b76e893013e320cf9b54918d1e7ec80bfe314450035aa8d389693d46c3a5", size = 18400, upload-time = "2026-03-04T19:33:22.923Z" },
 ]
 
 [[package]]
