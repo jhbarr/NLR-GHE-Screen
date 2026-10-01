@@ -163,9 +163,9 @@ def summarize_stats(clips):
     valid pixels in that bin, rounded to the nearest whole number (0-100).
 
     Args:
-    clips (dict): Clipped slope data in the form
-        ``{geometry_index: (raster_data, raster_transform)}``, as produced by
-        :func:`clip_raster_to_shapes`.
+        clips (dict): Clipped slope data in the form
+            ``{geometry_index: (raster_data, raster_transform)}``, as produced by
+            :func:`clip_raster_to_shapes`.
     
     Returns:
         dict: Maps each geometry index to a dictionary with the keys:
@@ -306,8 +306,8 @@ def categorize_steepness(gdf):
     written to the imports folder as a side effect. The returned GeoDataFrame keeps
     its original CRS.
     
-    Parameters:
-        gdf (Geopandas Dataframe): A GeoDataframe containing geometries within the bounds of the elevation raster data
+    Args:
+        gdf (geopandas.GeoDataframe): A GeoDataframe containing geometries within the bounds of the elevation raster data
     """
     print("\n---------------------------")
     print("Categorizing geometry steepness")
