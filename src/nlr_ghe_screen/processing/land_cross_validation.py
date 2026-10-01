@@ -143,20 +143,20 @@ def merge_and_save_tiles(clips):
 # Cross Validate Green Spaces
 # ---------------------------------------------------------------------------
 
-def cross_validate_greenspace(clips):
+def cross_validate_land(clips, land_codes):
     """
     Go through each of the geometries in clips and cross validate that a majority of their space is indeed green space
 
     Parameters:
         clips (list[tuple]): A list containing the data and transform information from World cover tiles
+        land_codes (list[int]): A list of ESA WorldCover raster codes associated with the land type to cross validate
     """
-    GREEN_CLASSES = [10, 20, 30, 90, 95]
 
     non_green = []
     for idx, (arr, transform) in clips.items():
         arr = arr.compressed()
 
-        green_mask = np.isin(arr, GREEN_CLASSES)
+        green_mask = np.isin(arr, land_codes)
         pct_green = 100 * green_mask.sum() / green_mask.size
 
         if pct_green <= 20:

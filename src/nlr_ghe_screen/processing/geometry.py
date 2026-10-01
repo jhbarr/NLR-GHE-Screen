@@ -186,6 +186,11 @@ def classify_geometry(row):
     if pd.notna(amenity) and amenity in amenity_tags:
         return 'parking'
 
+    water = row.get('natural')
+    water_bodies = row.get('water')
+    if (pd.notna(water) and water == 'water') or (pd.notna(water_bodies)):
+        return 'water'
+
     if (
         pd.notna(row.get('leisure')) and str(row.get('leisure')).strip()
     ) or (
@@ -297,7 +302,7 @@ def combine_geometries(df):
 
     # Establish the priority of space categorization
     # As well as which categories should be excluded from final results
-    priority = ['protected', 'parking', 'green_space', 'other']
+    priority = ['protected', 'parking', 'water', 'green_space', 'other']
     excluded_categories = ['protected']
 
     df = _clean(df)
@@ -307,7 +312,8 @@ def combine_geometries(df):
     claimed = None  # a single shapely geometry now, not a GeoDataFrame
 
     for category in priority:
-        subset = df[df['_category'] == category].drop(columns='_category')
+        # subset = df[df['_category'] == category].drop(columns='_category')
+        subset = df[df['_category'] == category]
         if subset.empty:
             continue
 

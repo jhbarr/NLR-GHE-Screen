@@ -1,6 +1,7 @@
 import time
 import requests
 import math
+from pathlib import Path
  
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
@@ -170,19 +171,11 @@ def build_overpass_query(bbox, mode="data", query_timeout = DEFAULT_QUERY_TIMEOU
     south, west, north, east = bbox
     bbox_str = f"{south},{west},{north},{east}"
 
-    filters = f"""
-    way["leisure"~"park|dog_park"]({bbox_str});
-    relation["leisure"~"park|dog_park"]({bbox_str});
- 
-    way["landuse"~"recreation_ground|meadow|grass|farmland"]({bbox_str});
-    relation["landuse"~"recreation_ground|meadow|grass|farmland"]({bbox_str});
- 
-    way["natural"~"wood|grassland|scrub|heath|wetland"]({bbox_str});
-    relation["natural"~"wood|grassland|scrub|heath|wetland"]({bbox_str});
- 
-    way["amenity"="parking"]({bbox_str});
-    relation["amenity"="parking"]({bbox_str});
-    """
+    # Open the file containing the Ovperass QL Query
+    data_dir = Path(__file__).parent.parent / 'data'
+    with open(data_dir / 'overpassql_query.txt') as file:
+        query_content = file.read()
+    filters = query_content.format(bbox_str=bbox_str)
 
     out_clause = "out count;" if mode == "count" else "out geom;"
 

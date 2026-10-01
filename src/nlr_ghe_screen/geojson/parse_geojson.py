@@ -268,6 +268,7 @@ def parse_api_response(data, bbox, is_df=False):
         'landuse', 
         'leisure', 
         'natural', 
+        'water',
         'boundary', # For checks on protected areas
         'amenity', # For information on parking areas 
         'geometry'
