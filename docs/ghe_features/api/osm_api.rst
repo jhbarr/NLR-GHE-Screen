@@ -32,11 +32,3 @@ Functions
 .. automodule:: nlr_ghe_screen.api.osm_api
    :members:
    :undoc-members:
-
-
-Dependencies
-------------
-**Python**:
-
-- time
-- requests 

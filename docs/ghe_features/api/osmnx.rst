@@ -15,10 +15,3 @@ Functions
 .. automodule:: nlr_ghe_screen.api.osmnx_api
    :members:
    :undoc-members:
-
-
-Dependencies
-------------
-**Python**:
-
-- osmnx

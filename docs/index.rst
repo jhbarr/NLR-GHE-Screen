@@ -19,6 +19,7 @@ Introduction to the program here
    :caption: Features
 
    ghe_features/index
+   visuals/index
 
 .. toctree::
    :maxdepth: 2

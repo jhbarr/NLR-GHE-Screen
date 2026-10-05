@@ -12,14 +12,3 @@ Functions
    :undoc-members:
    :show-inheritance:
 
-
-Dependencies
-------------
-**Python**: 
-
-- rasterio
-- pandas
-- numpy
-- rasterio.mask.mask
-- rasterio.warp 
-

@@ -13,11 +13,3 @@ Functions
    :undoc-members:
    :show-inheritance:
 
-
-Dependencies
-------------
-**Python**:
-
-- geopandas
-- pandas 
-

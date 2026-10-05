@@ -13,12 +13,3 @@ Functions
    :members:
    :undoc-members:
    :show-inheritance:
-
-
-Dependencies
-------------
-**Python**: 
-
-- GeoPandas
-- argparse
-- pyproj.CRS

@@ -172,7 +172,7 @@ def build_overpass_query(bbox, mode="data", query_timeout = DEFAULT_QUERY_TIMEOU
     bbox_str = f"{south},{west},{north},{east}"
 
     # Open the file containing the Ovperass QL Query
-    data_dir = Path(__file__).parent.parent / 'data'
+    data_dir = Path(__file__).parent
     with open(data_dir / 'overpassql_query.txt') as file:
         query_content = file.read()
     filters = query_content.format(bbox_str=bbox_str)

@@ -11,3 +11,5 @@ wr["building"~"^(industrial|data_center|cold_storage)$"]({bbox_str});
 wr["amenity"="hospital"]({bbox_str});
 
 nwr["shop"="supermarket"]({bbox_str});
+nwr["man_made"~"^(cooling_tower)$"]({bbox_str});
+  nwr["man_made"="tower"]["tower:type"="cooling"]({bbox_str})

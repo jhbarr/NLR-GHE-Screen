@@ -124,9 +124,7 @@ def run(args):
 
     gdf = combine_geometries(df=gdf) # ** Optional Step **
 
-    api_key = os.getenv("API_KEY")
-    west, south, east, north = gdf.total_bounds
-    get_opentop(bbox=(south, west, north, east), api_key=api_key)
+    get_opentop(bbox=bbox, api_key=os.getenv("API KEY"))
 
     categorize_steepness(gdf=gdf)
 

@@ -35,11 +35,3 @@ Functions
 .. automodule:: nlr_ghe_screen.api.otp_api
    :members:
    :undoc-members:
-
-
-Dependencies
-------------
-**Python**:
-
-- pathlib.Path
-- requests 

@@ -11,8 +11,3 @@ Functions
    :members:
    :undoc-members:
    :show-inheritance:
-
-
-Dependencies
-------------
-**Python**: json, jsonschema.validate, pathlib.Path

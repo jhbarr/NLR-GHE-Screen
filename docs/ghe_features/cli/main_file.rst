@@ -14,14 +14,6 @@ Functions
 
 Dependencies
 ------------
-**Python**: 
-
-- json
-- sys
-- pathlib.Path
-- jsonschema.ValidationError
-- pyorgio.errors.DataSourceError
-
 **scripts**
 
 - parse_args.parse_arguments

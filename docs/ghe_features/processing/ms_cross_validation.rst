@@ -13,13 +13,3 @@ Functions
    :undoc-members:
    :show-inheritance:
 
-
-Dependencies
-------------
-**Python**: 
-
-- geopandas
-- pandas
-- shapely.geometry.shape
-- math 
-
