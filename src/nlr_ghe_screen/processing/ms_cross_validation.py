@@ -1,8 +1,14 @@
-import geopandas as gpd
-from shapely.geometry import shape
+import gzip
+import json
 import math
-import pandas as pd
 
+import geopandas as gpd
+import pandas as pd
+import shapely
+from shapely.geometry import shape, box
+import requests
+import numpy as np
+from concurrent.futures import ThreadPoolExecutor
 
 
 # ---------------------------------------------------------------------------
@@ -85,16 +91,17 @@ def extract_quadkeys(bbox):
     """
     min_lat, min_lon, max_lat, max_lon = bbox
 
-    min_x, min_y = latlon_to_tile(min_lat, min_lon, level=9)
-    max_x, max_y = latlon_to_tile(max_lat, max_lon, level=9)
+    x1, y1 = latlon_to_tile(min_lat, min_lon, level=9)
+    x2, y2 = latlon_to_tile(max_lat, max_lon, level=9)
+
+    min_x, max_x = sorted((x1, x2))
+    min_y, max_y = sorted((y1, y2))
 
     quadkeys = []
     for x in range(min_x, max_x + 1):
         for y in range(min_y, max_y + 1):
             quadkey = tile_to_quadkey(x, y, level=9)
-            quadkeys.append(quadkey[1:] if quadkey[0] == '0' else quadkey) # ** may cause error later on **
-
-    print("Extracting quadkeys:", quadkeys)
+            quadkeys.append(str(int(quadkey)))  # drops leading zeros, matches the CSV
 
     return quadkeys
 
@@ -104,15 +111,64 @@ def extract_quadkeys(bbox):
 # MS Footprint data aggregation
 # ---------------------------------------------------------------------------
 
-def get_ms_building_data(quadkeys):
+def load_tile(url, quadkey, bbox_geom):
+    """Loads all of the MS footprint buildings from a tile if they overlap with the bounding box
+
+    This loads all of the MS footprint builings from a tile associated with the provided URL.
+    Additinally, it crops those buildings to the bounding box prior to loading those buildings 
+    into a dataframe, to prevent unnecessary processing. 
+
+    Args:
+        url (str): The MS Footprint URL associated with a tile
+        bbox_geom (shapely.geometry): A shapely geometry associated with the bounding box
+    
+    Returns:
+        geopandas.GeoDataframe: A dataframe containing the MS building footprints in the tile
+
+    Raises:
+        HTTPError: Raised if there is a problem fetching the data from the URL
     """
-    Using a set of MS quadkeys, extract all building data from the MS footprint database
+
+    response = requests.get(url, timeout=600)
+    response.raise_for_status()
+    lines = np.array(
+        gzip.decompress(response.content).decode('utf-8').splitlines(), dtype=object
+    )
+
+    # Convert GeoJSON strings or bytes into shapely geometry objects
+    geoms = shapely.from_geojson(lines)
+
+    # Crop the buildings to within the bounding box
+    # Check that geometries still exist once mask has been applied
+    mask = shapely.intersects(geoms, bbox_geom)
+    if not mask.any():
+        return None # No buildings to return within the bbox
+
+    # Parse properties that are associated with the buildings being kept
+    props = [json.loads(line).get('properties') or {} for line in lines[mask]]
+
+    print(f"Loaded Quadkey: {quadkey}")
+    return gpd.GeoDataFrame(
+        pd.DataFrame(props), geometry=geoms[mask], crs="EPSG:4326"
+    )
+
+
+def get_ms_building_data(quadkeys, bbox):
+    """Extract all MS building footprints within a given bounding box
+
+    Using all of the quadkeys associated with the MS footprint tiles that overlap with the provided bounding box,
+    the process extracts all of the building footprints within that bounding box and returns them in a geodataframe. 
+    The return data is clipped so that nothing outside the boundaries of the bbox are returned. 
+
+    This process utilizes a maximum of four concurrent threads to speed up the time it takes to load and process
+    each MS footprint tile
 
     Paramters:
         quadkeys (list[str]): A list of the quadkeys associated with MS footprint tiles
-    
+        bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
+
     Returns:
-        gdf (GeoDataframe): A dataframe containing all extracted building data
+        geopandas.GeoDataframe: A dataframe containing all extracted building data
     """
     links = pd.read_csv(
         "https://bfppub.blob.core.windows.net/$web/2026-08-13/dataset-links.csv"
@@ -120,37 +176,67 @@ def get_ms_building_data(quadkeys):
     links['QuadKey'] = links['QuadKey'].astype(str)
 
     selected_regions = links[
-        (links['QuadKey'].isin(quadkeys)) &
-        (links['Location'] == 'UnitedStates')
+        (links['QuadKey'].isin(quadkeys)) & (links['Location'] == 'UnitedStates')
     ]
+    if selected_regions.empty:
+        return # Return nothing if there are no quadkeys found in the region
 
-    gdfs = []
-    for _, row in selected_regions.iterrows():
-        print("Loading:", row["QuadKey"])
+    south, west, north, east = bbox
+    bbox_geom = box(west, south, east, north)
 
-        df = pd.read_json(row["Url"], lines=True)
-        df["geometry"] = df["geometry"].apply(shape)
+    # Open a pool of threads to concurrently load the tiles
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(lambda url, quadkey: load_tile(url, quadkey, bbox_geom), selected_regions['Url'], selected_regions['QuadKey']))
 
-        gdf = gpd.GeoDataFrame(
-            df,
-            geometry="geometry",
-            crs="EPSG:4326"
-        )
+    gdfs = [g for g in results if g is not None]
+    if not gdfs:
+        return # Return nothing if no data was extracted
 
-        gdfs.append(gdf)
+    return gpd.GeoDataFrame(
+        pd.concat(gdfs, ignore_index=True), geometry='geometry', crs="EPSG:4326"
+    )
 
-    if gdfs:
-        ms_buildings = pd.concat(gdfs, ignore_index=True) 
-        ms_buildings = gpd.GeoDataFrame(
-            ms_buildings,
-            geometry="geometry",
-            crs="EPSG:4326"
-        )
 
-        return ms_buildings
 
-    else:
-        return
+# ---------------------------------------------------------------------------
+# MS Footprint Use Functions
+# ---------------------------------------------------------------------------
+
+def footprints_for_points(gdf, ms_buildings):
+    """Assigns MS building footprints to corresponding Point geometries in a GeoDataframe
+
+    Point geometries in a GeoDataframe are a set of coordinates. This function takes those coordinates and checks
+    whether they overlap with a building footprint from MS Footprint. If so, the Point geometries in the original 
+    dataframe are overwritten with the new Polygon shape geometries of the bulding that Point corresponds to.
+
+    Args:
+        gdf (geopandas.GeoDataframe): A GeoDataframe containing OSM space information
+        ms_buildings (geopandas.GeoDataframe): A GeoDataframe containing MS Footprint building footprtint shapes
+
+    Returns:
+        geopandas.GeoDataframe: A new dataframe with Point geometries converted to corresponding Polygon geometries
+    """
+    gdf = gdf.to_crs(ms_buildings.crs)
+
+    # Join each point to the footprint it falls in
+    fp = ms_buildings[['geometry']] # Returns a dataframe with the geometry
+    joined = gpd.sjoin(gdf, fp, how='left', predicate='within') # Use left keys and retain left geometries. 
+
+    # Swap the point geometry for the footprtint geometry
+    matched = joined[joined['index_right'].notna()].copy()
+    matched['geometry'] = ms_buildings.geometry.loc[matched['index_right'].astype(int)].values # Get the geometry values associated with the geometries in the sjoin
+    matched = matched.drop(columns='index_right').set_geometry('geometry')
+
+    # Ensure that there is only one polygon for each OSM row
+    # Two points that had overlapped the same polygon would create duplicated indicies
+    matched = matched[~matched.index.duplicated(keep='first')] # The ~ means NOT
+
+    # Overwrite the geometry for matched rows only
+    new_geom = gdf.geometry.copy()
+    new_geom.loc[matched.index] = matched.geometry
+    result = gdf.set_geometry(new_geom)
+
+    return result
 
 
 

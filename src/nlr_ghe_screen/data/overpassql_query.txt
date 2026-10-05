@@ -1,18 +1,13 @@
-way["leisure"~"park|dog_park"]({bbox_str});
-relation["leisure"~"park|dog_park"]({bbox_str});
+wr["leisure"~"^(park|dog_park)$"]({bbox_str});
+wr["landuse"~"^(recreation_ground|meadow|grass|farmland)$"]({bbox_str});
+wr["natural"~"^(wood|grassland|scrub|heath|wetland|water)$"]({bbox_str});
+wr["amenity"="parking"]({bbox_str});
+wr["water"~"^(lake|pond|reservoir|basin|lagoon|oxbow|fishpond|derelict_canal|reflecting_pool|wastewater)$"]({bbox_str});
 
-way["landuse"~"recreation_ground|meadow|grass|farmland"]({bbox_str});
-relation["landuse"~"recreation_ground|meadow|grass|farmland"]({bbox_str});
+wr["man_made"~"^(wastewater_plant|water_works)$"]({bbox_str});
+wr["power"="plant"]({bbox_str});
+wr["telecom"="data_center"]({bbox_str});
+wr["building"~"^(industrial|data_center|cold_storage)$"]({bbox_str});
+wr["amenity"="hospital"]({bbox_str});
 
-way["natural"~"wood|grassland|scrub|heath|wetland"]({bbox_str});
-relation["natural"~"wood|grassland|scrub|heath|wetland"]({bbox_str});
-
-way["amenity"="parking"]({bbox_str});
-relation["amenity"="parking"]({bbox_str});
-
-
-way["natural"="water"]({bbox_str});
-relation["natural"="water"]({bbox_str});
-
-way["water"~"^(lake|pond|reservoir|basin|lagoon|oxbow|fishpond|derelict_canal|reflecting_pool|wastewater)$"]({bbox_str});
-relation["water"~"^(lake|pond|reservoir|basin|lagoon|oxbow|fishpond|derelict_canal|reflecting_pool|wastewater)$"]({bbox_str});
+nwr["shop"="supermarket"]({bbox_str});

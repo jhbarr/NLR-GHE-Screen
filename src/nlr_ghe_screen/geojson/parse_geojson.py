@@ -1,7 +1,9 @@
 import geopandas as gpd
+import pandas as pd
 from shapely.geometry import Polygon, LineString, MultiPolygon
 from shapely.ops import unary_union, polygonize
 import osm2geojson
+import numpy as np
 
 
 # ---------------------------------------------------------------------------
@@ -210,10 +212,51 @@ def crop_to_bbox(gdf, bbox):
     """
     south, west, north, east = bbox
     clipped = gdf.clip((west, south, east, north), keep_geom_type=True)
-    clipped = clipped[clipped.geom_type.isin(["Polygon", "MultiPolygon"])]
+    clipped = clipped[clipped.geom_type.isin(["Polygon", "MultiPolygon", "Point"])]
 
     return clipped
 
+
+
+# ---------------------------------------------------------------------------
+# Process Waste Heat Source Columns
+# ---------------------------------------------------------------------------
+
+def add_waste_heat_source(gdf):
+    """Takes various tags associated with waste heat sources and compacts them into a single 'waste heat source' column
+
+    Searches for the presence of different tags associated with waste heat sources. If they exist for some building,
+    that building is given a waste heat source attribute with that tag as its value. This is to simplify the data in the geodataframe
+    so that the program does not need to search multiple attribute fields to check whether a building is a possible waste heat source
+    
+    Args:
+        gdf (geopandas.GeoDataframe): A Geodataframe containing the results of an OpenStreetMap query
+    
+    Returns:
+        geopandas.GeoDataframe: The original dataframe with a waste_heat_source column added
+    """
+    WASTE_HEAT_RULES = {
+        'man_made': {'wastewater_plant', 'water_works'},
+        'power': {'plant'},
+        'telecom': {'data_center'},
+        'building': {'industrial', 'data_center', 'cold_storage'},
+        'amenity': {'hospital'},
+        'shop': {'supermarket'},
+    }
+
+    result = pd.Series(np.nan, index=gdf.index, dtype="object")
+
+    for tag, values in WASTE_HEAT_RULES.items():
+        if tag not in gdf.columns:
+            continue # tag never appeared in the Overpass query
+
+        # Builds a boolean series from the two conditions
+        # Element wise AND, so row is in the mask if it matches the rule and hasn't already been labeled
+        mask = gdf[tag].isin(values) & result.isna()
+        result[mask] = gdf.loc[mask, tag].astype(str)
+
+    gdf['waste_heat_source'] = result
+    return gdf
 
 
 
@@ -263,6 +306,8 @@ def parse_api_response(data, bbox, is_df=False):
     else:
         gdf = normalize_osmnx_gdf(gdf=data)
 
+    gdf = add_waste_heat_source(gdf)
+
     desired_attributes = [
         'name', 
         'landuse', 
@@ -271,6 +316,7 @@ def parse_api_response(data, bbox, is_df=False):
         'water',
         'boundary', # For checks on protected areas
         'amenity', # For information on parking areas 
+        'waste_heat_source', # For waste heat source info
         'geometry'
     ]
     gdf = gdf.reindex(columns=desired_attributes)

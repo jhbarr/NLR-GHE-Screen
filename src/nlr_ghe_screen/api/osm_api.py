@@ -275,6 +275,7 @@ def run_overpass_query(query, query_timeout=DEFAULT_QUERY_TIMEOUT, max_retries=3
 
 
 
+
 # ---------------------------------------------------------------------------
 # Query splitting
 # ---------------------------------------------------------------------------
@@ -390,6 +391,8 @@ def fetch_bbox(bbox, collected, depth, query_timeout=DEFAULT_QUERY_TIMEOUT, max_
         fetch_bbox(half, collected, depth + 1, query_timeout, max_elements, max_depth)
 
 
+
+
 # ---------------------------------------------------------------------------
 # Main API Execution
 # ---------------------------------------------------------------------------
@@ -468,6 +471,7 @@ def get_overpass(bbox, query_timeout=DEFAULT_QUERY_TIMEOUT, max_elements=MAX_ELE
     print("---------------------------")
  
     return data
+
 
 def get_overpass_no_splitting(bbox, query_timeout=DEFAULT_QUERY_TIMEOUT):
     """Fetch full geometries and tags for a bounding box in a single request.

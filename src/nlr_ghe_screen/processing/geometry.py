@@ -168,6 +168,7 @@ def classify_geometry(row):
     Returns:
         str: One of ``"protected"``, ``"parking"``, ``"green_space"``, or ``"other"``.
     """
+    # Boundary related attributes
     boundary = row.get('boundary')
     boundary_tags = [
         'protected_area', 
@@ -179,6 +180,12 @@ def classify_geometry(row):
     if pd.notna(boundary) and boundary in boundary_tags:
         return 'protected'
 
+    # Waste heat source related attributes
+    waste_heat_source = row.get('waste_heat_source')
+    if pd.notna(waste_heat_source):
+        return 'waste_heat_source'
+
+    # Parking related attributes
     amenity = row.get('amenity')
     amenity_tags = [
         'parking'
@@ -186,11 +193,13 @@ def classify_geometry(row):
     if pd.notna(amenity) and amenity in amenity_tags:
         return 'parking'
 
+    # Water related attributes
     water = row.get('natural')
     water_bodies = row.get('water')
     if (pd.notna(water) and water == 'water') or (pd.notna(water_bodies)):
         return 'water'
 
+    # Greenspace related attributes
     if (
         pd.notna(row.get('leisure')) and str(row.get('leisure')).strip()
     ) or (
@@ -302,7 +311,7 @@ def combine_geometries(df):
 
     # Establish the priority of space categorization
     # As well as which categories should be excluded from final results
-    priority = ['protected', 'parking', 'water', 'green_space', 'other']
+    priority = ['protected', 'waste_heat', 'water', 'parking', 'green_space', 'other']
     excluded_categories = ['protected']
 
     df = _clean(df)
