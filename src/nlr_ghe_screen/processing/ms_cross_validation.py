@@ -285,7 +285,7 @@ def cross_validate_osm_spaces(bbox, osm_spaces):
 
     # If there are no MS buildings in the area of interest
     # return nothing
-    ms_buildings = get_ms_building_data(quadkeys=quadkeys)
+    ms_buildings = get_ms_building_data(quadkeys=quadkeys, bbox=bbox)
     if len(ms_buildings) > 0:
         ms_buildings = ms_buildings.to_crs(osm_parking.crs)
     else:

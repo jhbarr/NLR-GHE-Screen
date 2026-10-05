@@ -114,17 +114,17 @@ def run(args):
     """
     bbox = parse_arguments(args)
 
-    result = get_overpass_no_splitting(bbox=bbox)
+    result = get_overpass(bbox=bbox)
 
     gdf = parse_api_response(data=result, bbox=bbox)
 
     validate_geojson(data=gdf)
 
-    gdf = cross_validate_osm_spaces(bbox=bbox, osm_spaces=gdf) # ** Optional Step **
+    # gdf = cross_validate_osm_spaces(bbox=bbox, osm_spaces=gdf) # ** Optional Step **
 
     gdf = combine_geometries(df=gdf) # ** Optional Step **
 
-    get_opentop(bbox=bbox, api_key=os.getenv("API KEY"))
+    get_opentop(bbox=bbox, api_key=os.getenv("API_KEY"))
 
     categorize_steepness(gdf=gdf)
 

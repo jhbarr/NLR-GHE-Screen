@@ -2,7 +2,7 @@ wr["leisure"~"^(park|dog_park)$"]({bbox_str});
 wr["landuse"~"^(recreation_ground|meadow|grass|farmland)$"]({bbox_str});
 wr["natural"~"^(wood|grassland|scrub|heath|wetland|water)$"]({bbox_str});
 wr["amenity"="parking"]({bbox_str});
-wr["water"~"^(lake|pond|reservoir|basin|lagoon|oxbow|fishpond|derelict_canal|reflecting_pool|wastewater)$"]({bbox_str});
+wr["water"~"^(lake|pond|reservoir|basin|lagoon|fishpond|derelict_canal|wastewater)$"]({bbox_str});
 
 wr["man_made"~"^(wastewater_plant|water_works)$"]({bbox_str});
 wr["power"="plant"]({bbox_str});
@@ -12,4 +12,4 @@ wr["amenity"="hospital"]({bbox_str});
 
 nwr["shop"="supermarket"]({bbox_str});
 nwr["man_made"~"^(cooling_tower)$"]({bbox_str});
-  nwr["man_made"="tower"]["tower:type"="cooling"]({bbox_str})
+nwr["man_made"="tower"]["tower:type"="cooling"]({bbox_str});

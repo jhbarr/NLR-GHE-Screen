@@ -7,91 +7,6 @@ import numpy as np
 
 
 # ---------------------------------------------------------------------------
-# Create geometries
-# ---------------------------------------------------------------------------
-
-def create_geometry_object(element):
-    """Convert a single Overpass API element into a Shapely polygon geometry
-
-    Handles two element types, both of which must include inline coordinates:
-
-        - **way**: Built into a ``Polygon`` if it has at least 3 coordinates and is
-          closed (first coordinate equals last). Open ways return ``None``.
-        - **relation**: The geometry of each member way is turned into a line, the
-          lines are merged, and ``polygonize`` builds polygons from the closed rings
-          they form. One polygon is returned as a ``Polygon`` and several as a
-          ``MultiPolygon``. Member roles (outer/inner) are not used, so the result
-          is whatever closed rings the member lines happen to form.
-        
-    Coordinates are read as ``(lon, lat)``.
-
-    Args:
-        element (dict): A single element from the ``elements`` list of an Overpass
-            API response.
- 
-    Returns:
-        shapely.geometry.Polygon | shapely.geometry.MultiPolygon | None: The polygon
-            geometry for the element, or ``None`` if no polygon can be built (an open
-            way, missing geometry, or a relation whose members form no closed rings).
- 
-    Raises:
-        TypeError: If the element's ``type`` is neither ``"way"`` nor ``"relation"``
-            (for example, a ``"node"``).
-    """
-    # Check if the type of the element is a way geometry 
-    if element["type"] == "way":
-        geometry = element.get("geometry", [])
-
-        coords = [
-            (point["lon"], point["lat"])
-            for point in geometry
-        ]
-
-        # A polygon requires at least 3 coordinates and a closed ring
-        if len(coords) >= 3 and coords[0] == coords[-1]:
-            return Polygon(coords)
-
-        return None
-
-    # Check if the type of the element is a relation geometry
-    elif element["type"] == "relation":
-        lines = []
-
-        for member in element.get("members", []):
-            geometry = member.get("geometry", [])
-
-            coords = [
-                (point["lon"], point["lat"])
-                for point in geometry
-            ]
-
-            if len(coords) >= 2:
-                lines.append(LineString(coords))
-
-        if not lines:
-            return None
-
-        # Combine the member ways
-        merged = unary_union(lines)
-
-        # Build polygons from the combined lines
-        polygons = list(polygonize(merged))
-
-        if not polygons:
-            return None
-
-        if len(polygons) == 1:
-            return polygons[0]
-
-        return MultiPolygon(polygons)
-
-    # If a non-recognized geometry type is passed, throw an error
-    else:
-        raise TypeError(f"Unrecognized geometry type: {element['type']}")
-
-
-
-# ---------------------------------------------------------------------------
 # Parse API Results
 # ---------------------------------------------------------------------------
 
@@ -161,7 +76,7 @@ def normalize_osmnx_gdf(gdf):
         ValueError: If the input is ``None`` or empty, or if no polygon geometries
             remain after filtering.
     """
-    POLYGON_TYPES = ("Polygon", "MultiPolygon")
+    POLYGON_TYPES = ("Polygon", "MultiPolygon", "Point")
 
     if gdf is None or gdf.empty:
         raise ValueError("The osmnx response is empty")

@@ -5,10 +5,10 @@ from pathlib import Path
  
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
-DEFAULT_QUERY_TIMEOUT = 30
+DEFAULT_QUERY_TIMEOUT = 45
 HTTP_TIMEOUT_BUFFER = 5
 
-MAX_ELEMENTS_PER_QUERY = 3500 # Subject to change based on live results
+MAX_ELEMENTS_PER_QUERY = 5000 # Subject to change based on live results
 MAX_SPLIT_DEPTH = 4
 REQUEST_PAUSE = 1.0
 
