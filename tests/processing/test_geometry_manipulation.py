@@ -4,9 +4,9 @@ import pandas as pd
 from geopandas.testing import assert_geodataframe_equal
 
 from nlr_ghe_screen.processing.geometry import (
-    create_overlapping_groups, 
+    combine_overlapping_groups, 
     combine_geometries, 
-    classify_geometry
+    classify_geometries
 )
 
 
@@ -49,7 +49,7 @@ class TestGeometryOverlap:
         }
 
         df = gpd.GeoDataFrame(test_data, crs="EPSG:4326")
-        groups = create_overlapping_groups(df)
+        groups = combine_overlapping_groups(df)
 
         assert len(groups) == 1
         
@@ -95,7 +95,7 @@ class TestGeometryOverlap:
         }
 
         df = gpd.GeoDataFrame(test_data, crs="EPSG:4326")
-        groups = create_overlapping_groups(df)
+        groups = combine_overlapping_groups(df)
 
         assert len(groups) == 1
 
@@ -127,7 +127,7 @@ class TestGeometryOverlap:
         }
 
         df = gpd.GeoDataFrame(test_data, crs="EPSG:4326")
-        groups = create_overlapping_groups(df)
+        groups = combine_overlapping_groups(df)
 
         assert len(groups) == 2
 
@@ -179,6 +179,7 @@ class TestGeometryCombination:
             "district_system_type": ["Central Hot Water"],
             "name": ["Park1; Park2"],
             "landuse": ["recreation"],
+            "_category": "green_space",
             "geometry": [
                 Polygon([
                     (4, 0),
@@ -208,6 +209,7 @@ class TestGeometryCombination:
         test_data = {
             "type": ["District System", "District System"],
             "district_system_type": ["Central Hot Water", "Central Hot Water"],
+            "_category": ["other", "other"],
             "geometry": [
                 Polygon([
                     (0, 0),
@@ -228,6 +230,7 @@ class TestGeometryCombination:
 
         expected_df = gpd.GeoDataFrame(test_data, crs="EPSG:4326")
         result_df = combine_geometries(expected_df)
+        print(result_df)
 
         assert_geodataframe_equal(
             expected_df,
@@ -268,10 +271,6 @@ class TestClassifyGeometry:
 
         test_df = pd.DataFrame(test_data)
         expected_df = pd.DataFrame(expected_data)
-        test_df['_category'] = test_df.apply(classify_geometry, axis=1)
-
-        print(test_df)
-        print()
-        print(expected_df)
+        test_df['_category'] = classify_geometries(test_df)
 
         assert test_df.equals(expected_df)

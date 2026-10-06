@@ -15,7 +15,7 @@ from nlr_ghe_screen.api.osmnx_api import get_osmnx, OXError
 from nlr_ghe_screen.geojson.parse_geojson import parse_api_response
 from nlr_ghe_screen.geojson.validate_geojson import validate_geojson
 
-from nlr_ghe_screen.processing.geometry import combine_geometries, classify_geometry
+from nlr_ghe_screen.processing.geometry import combine_geometries, classify_geometries
 from nlr_ghe_screen.processing.ms_cross_validation import cross_validate_osm_spaces
 from nlr_ghe_screen.processing.elevation import categorize_steepness
 
@@ -46,7 +46,7 @@ def aggregate_metadata(df):
 
     # Add the categories to the rows to which they apply
     df = df.copy()
-    df['_category'] = df.apply(classify_geometry, axis=1)
+    df['_category'] = classify_geometries(df)
     crs = df.estimate_utm_crs()
 
     metadata = {}
@@ -114,7 +114,7 @@ def run(args):
     """
     bbox = parse_arguments(args)
 
-    result = get_overpass(bbox=bbox)
+    result = get_overpass_no_splitting(bbox=bbox)
 
     gdf = parse_api_response(data=result, bbox=bbox)
 

@@ -1,145 +1,102 @@
 import geopandas as gpd
 import pandas as pd
+import numpy as np
+import shapely
 from shapely import make_valid
 from shapely.geometry import Polygon, MultiPolygon, GeometryCollection
 from shapely.ops import unary_union
+
+from scipy.sparse import coo_matrix
+from scipy.sparse.csgraph import connected_components
 
 
 # ---------------------------------------------------------------------------
 # Create + Combine geometry groups
 # ---------------------------------------------------------------------------
 
-def create_overlapping_groups(df):
-    """Group rows whose geometries overlap or touch, directly through a chain
+def create_group_labels(gdf):
+    """Returns group id assignments for all of the geometries in a GeoDataframe
 
-    Use spatial index and depth first search to find connected clusters of geometries. Two geometries are
-    connected if they intersect. Every row ends up in exactly one group, and a geometry that does not intersect
-    anything else forms a group of its own. 
+    This function takes in a GeoDataframe and then provides labels for all clusters of geometries that overlap with each 
+    other. Therefore, all geometries that overlap will be assigned a cluster label, indicating that they overlap. 
+    This is done by running a spatial query on the gdf geometry values and the predicate ``'intersects``. 
 
-    Args:
-        df (geopandas.GeoDataFrame): Rows with only Polygon and MultiPolygon
-            geometries and a default ``RangeIndex``.
- 
-    Returns:
-        list[set]: One set per group, each holding the index values of the rows in
-            that group.
-    """
-    # Make sure geometries are valid
-    df["geometry"] = df.geometry.make_valid()
+    A sparse adjacency matrix is then created out of these pairs using scipy.coo_matrix (coordinate matrix). Then, 
+    the scipy.connected_components function is run on this graph to assign cluster labels to all different nodes in
+    the graph that overlap each other. 
 
-    # Create a spatial index
-    sindex = df.sindex
-
-    # Build groups of overlapping/touching polygons
-    groups = []
-    visited = set()
-
-    # Go through each of the unique geometries in the dataframe 
-    # and combine the geometries that are overlapping with each other
-    # using DFS
-    for idx in df.index:
-        if idx in visited:
-            continue
-
-        group = {idx}
-        stack = [idx]
-
-        # Keep checking if there are other geometries that overlap with the group that has
-        # been gathered so far
-        while stack:
-            current = stack.pop()
-
-            # Find polygons whose bounding boxes intersect
-            candidates = list(
-                sindex.query(
-                    df.loc[current, "geometry"],
-                    predicate="intersects"
-                )
-            )
-
-            for candidate in candidates:
-                if candidate not in group:
-                    group.add(candidate)
-                    stack.append(candidate)
-
-        visited.update(group)
-        groups.append(group)
-
-    return groups
-
-
-def combine_overlapping_groups(df):
-    """Merge rows with overlapping geometries into single rows. 
-
-    Finds groups of overlapping or touching geometries (see :func:`create_overlapping_groups`)
-    and collapses each group into one row and conglomerated shape. The new row is of the form:
-
-        - **geometry**: the union of all geometries in the group.
-        - **every other column**: the unique, non-null values in the group, converted
-          to strings and joined with ``"; "``. A column that is entirely null within
-          a group becomes an empty string.
-        
-    Attributes are joined as text, so all non-geometry columns will become strings regardless of their original 
-    dtype. 
+    The function returns an array 'labels' of length n, where n is the number of original geometries. labels[i] = group id
+    of row i. i corresponds to the ith geometry in the GeoDataframe, not to the geometries true corresponding index. 
 
     Args:
-        df (geopandas.GeoDataFrame): Rows with only Polygon and MultiPolygon
-            geometries.
- 
+        gdf (geopandas.GeoDataframe): A GeoDataframe containing OSM information and geometries
+    
     Returns:
-        geopandas.GeoDataFrame: One row per group of overlapping geometries.
+        list[int]: The list of cluster assignments
     """
-    # To avoid any issues with indexing the rows 
-    df = df.reset_index(drop=True)
 
-    # Create groups of overlapping geometries 
-    groups = create_overlapping_groups(df=df)
+    n = len(gdf)
 
-    # Create list to hold all of the rows in the final combine dataframe
-    combined_rows = []
+    # Returns a 2 x M array of pairs
+    # where each column is a pair of geometries that overlap
+    # Unpacking it via left, right gives the two rows and separate arrays
+    left, right = gdf.sindex.query(gdf.geometry.values, predicate="intersects")
 
-    # Go through each of the groups of geographic areas that have been calculated to overlap
-    for group_number, group in enumerate(groups, start=1):
-        # Get all of the geometries from the group and combine them into one 
-        # conglomerate geometry 
-        group_df = df.loc[list(group)].copy()
-        combined_geometry = group_df.geometry.union_all()
+    # Create a 'sparse' adjacency matrix that stores the query information regarding which 
+    # geometries overlap with each other 
+    graph = coo_matrix((np.ones(len(left), dtype=bool), (left, right)), shape=(n, n))
 
-        # Create a new row for the final dataframe
-        row = {
-            "geometry": combined_geometry,
-        }
+    # Takes in a sparse graph and returns the cluster label assignments for each geometry
+    _, labels = connected_components(graph, directed=False)
 
-        # Go through each of the attributes that we want to gather and apend them to 
-        # the final row 
-        column_list = df.columns.to_list()
-        column_list.remove('geometry')
-        for column in column_list:
-            if column not in group_df.columns:
-                continue
+    return labels  # labels[i] = group id of row i
+
+
+def _join_unique(s):
+    return "; ".join(pd.unique(s.dropna()))
+
+
+def combine_overlapping_groups(gdf):
+    """Combines geometries based on whether they overlap with each other
+
+    This function first assigns cluster labels to all geometries. Geometries with the same cluster label
+    either directly or transitively overlap pwith each other. All cluster groups are then 'dissolved' into 
+    one large geometry. 
+
+    Args:
+        gdf (geopandas.GeoDataframe): A GeoDataframe containing OSM information and geometries
     
-            # Go through each value in the selected attribute column (from the group)
-            # and combine them into one tuple
-            values = (
-                group_df[column]
-                .dropna()
-                .astype(str)
-                .unique()
-            )
+    Returns:
+        geopandas.GeoDataframe: A new GeoDataframe with the combined geometries and their combined attributes
+    """
+    # Reset the index so that the 'create_group_label' function works properly
+    df = gdf.reset_index(drop=True)
 
-            # Join all non-unique values 
-            row[column] = "; ".join(values)
-    
-        combined_rows.append(row)
+    # Assign all of the attribute columns a string type 
+    attr_cols = [c for c in df.columns if c != "geometry"]
+    df[attr_cols] = df[attr_cols].astype(str)  # stringify once, keeps NA
 
-    # Create the final dataframe with the new combined geometries and the 
-    # aggregated attributes
-    combined = gpd.GeoDataFrame(
-        combined_rows,
+    labels = create_group_labels(df)
+    sizes = np.bincount(labels)
+    is_multi = sizes[labels] > 1
+
+    # Singletons: nothing to merge
+    singles = df[~is_multi].copy()
+    singles[attr_cols] = singles[attr_cols].fillna("")
+
+    # Multi-row groups: one dissolve call
+    multi = df[is_multi].assign(_g=labels[is_multi])
+    merged = multi.dissolve(
+        by="_g", 
+        aggfunc={c: _join_unique for c in attr_cols},
+        as_index=False).drop(columns="_g")
+
+    return gpd.GeoDataFrame(
+        pd.concat([singles, merged], ignore_index=True),
+        geometry="geometry", 
         crs=df.crs
     )
 
-    return combined
 
 
 
@@ -147,7 +104,7 @@ def combine_overlapping_groups(df):
 # Classify geometry objects
 # ---------------------------------------------------------------------------
 
-def classify_geometry(row):
+def classify_geometries(gdf):
     """Assign a category label to a row / geometry based on its OSM tag
 
     Checks the tags in priority order and returns the first match, so a geometry that could fall into several
@@ -161,55 +118,28 @@ def classify_geometry(row):
         4. ``'other'``
 
     Args:
-        row (pandas.Series): A single row from a GeoDataFrame, expected to contain
-            some of the OSM tag columns ``boundary``, ``amenity``, ``leisure``,
-            ``landuse``, and ``natural``.
+        gdf (geopandas.GeoDataframe): A GeoDataframe containing OSM information and geometries
  
     Returns:
-        str: One of ``"protected"``, ``"parking"``, ``"green_space"``, or ``"other"``.
+        geopandas.GeoSeries: Each entry is either ``"protected"``, ``"parking"``, ``"green_space"``, or ``"other"``.
     """
-    # Boundary related attributes
-    boundary = row.get('boundary')
-    boundary_tags = [
-        'protected_area', 
-        'forest', 
-        'forest_compartment', 
-        'national_park', 
-        'aboriginal_lands'
+    PROTECTED = ["protected_area", "forest", "forest_compartment", "national_park", "aboriginal_lands"]
+
+    def col(name):
+        return gdf[name] if name in gdf else pd.Series(None, index=gdf.index, dtype=object)
+    def nonblank(name):
+        return col(name).notna() & col(name).astype(str).str.strip().ne("")
+
+    conditions = [
+        col("boundary").isin(PROTECTED),
+        col("waste_heat_source").notna(),
+        col("amenity").eq("parking"),
+        col("natural").eq("water") | col("water").notna(),
+        nonblank("leisure") | nonblank("landuse") | nonblank("natural"),
     ]
-    if pd.notna(boundary) and boundary in boundary_tags:
-        return 'protected'
+    choices = ["protected", "waste_heat", "parking", "water", "green_space"]
 
-    # Waste heat source related attributes
-    waste_heat_source = row.get('waste_heat_source')
-    if pd.notna(waste_heat_source):
-        return 'waste_heat_source'
-
-    # Parking related attributes
-    amenity = row.get('amenity')
-    amenity_tags = [
-        'parking'
-    ]
-    if pd.notna(amenity) and amenity in amenity_tags:
-        return 'parking'
-
-    # Water related attributes
-    water = row.get('natural')
-    water_bodies = row.get('water')
-    if (pd.notna(water) and water == 'water') or (pd.notna(water_bodies)):
-        return 'water'
-
-    # Greenspace related attributes
-    if (
-        pd.notna(row.get('leisure')) and str(row.get('leisure')).strip()
-    ) or (
-        pd.notna(row.get('landuse')) and str(row.get('landuse')).strip()
-    ) or (
-        pd.notna(row.get('natural')) and str(row.get('natural')).strip()
-    ):
-        return 'green_space'
-
-    return 'other'
+    return np.select(conditions, choices, default="other")
 
 
 
@@ -269,15 +199,40 @@ def _clean(gdf):
             Polygon or MultiPolygon geometries.
     """
     gdf = gdf.copy()
-    gdf["geometry"] = gdf.geometry.apply(_polygonal_only)
-    gdf = gdf[gdf.geometry.notna() & ~gdf.geometry.is_empty]
-    return gdf
+    invalid = ~gdf.geometry.is_valid
+    if invalid.any():
+        gdf.loc[invalid, "geometry"] = gdf.loc[invalid, "geometry"].make_valid()
+    odd = ~gdf.geom_type.isin(["Polygon", "MultiPolygon"])
+    if odd.any():
+        gdf.loc[odd, "geometry"] = gdf.loc[odd, "geometry"].apply(_polygonal_only)
 
+    keep = ~gdf.geometry.isna() & ~gdf.geometry.is_empty
+    return gdf[keep]
 
 
 # ---------------------------------------------------------------------------
 # Main combination execution
 # ---------------------------------------------------------------------------
+
+def subtract_claimed(subset, claimed):
+    """
+
+    """
+    sub_idx, claim_idx = claimed.sindex.query(subset.geometry.values, predicate="intersects")
+    if len(sub_idx) == 0:
+        return subset
+
+    claimed_arr = np.asarray(claimed.values)
+    cutters = (pd.Series(claim_idx).groupby(sub_idx)
+               .agg(lambda c: shapely.union_all(claimed_arr[c.values])))
+
+    arr = np.asarray(subset.geometry.values).copy()
+    arr[cutters.index.values] = shapely.difference(arr[cutters.index.values], cutters.values)
+
+    subset = subset.copy()
+    subset["geometry"] = gpd.GeoSeries(arr, index=subset.index, crs=subset.crs)
+    return _clean(subset)
+
 
 def combine_geometries(df):
     """Combine overlapping geometries within mutually exclusive categories. 
@@ -309,55 +264,50 @@ def combine_geometries(df):
     print("\n---------------------------")
     print("Combining overlapping geometries")
 
-    # Establish the priority of space categorization
-    # As well as which categories should be excluded from final results
     priority = ['protected', 'waste_heat', 'water', 'parking', 'green_space', 'other']
-    excluded_categories = ['protected']
+    excluded_categories = {'protected'}
 
-    df = _clean(df)
-    df['_category'] = df.apply(classify_geometry, axis=1)
+    df = _clean(df).reset_index(drop=True).copy()
+    df['_category'] = classify_geometries(df)
 
-    combined_parts = []
-    claimed = None  # a single shapely geometry now, not a GeoDataFrame
+    combined_parts = []   # output pieces from non-excluded categories
+    claimed_parts = []    # geometry of every processed category, used for subtraction
+    claimed = None        # GeoSeries built from claimed_parts
 
     for category in priority:
-        # subset = df[df['_category'] == category].drop(columns='_category')
         subset = df[df['_category'] == category]
         if subset.empty:
             continue
 
-        # Subtract higher-priority area with plain shapely, not gpd.overlay
+        # Subtract only the claimed pieces that actually touch each geometry
         if claimed is not None:
-            subset = subset.copy()
-            subset["geometry"] = subset.geometry.difference(claimed)
-            subset = _clean(subset)
+            subset = subtract_claimed(subset, claimed)
             if subset.empty:
                 continue
 
-        # Combine all overlapping geometries within the category 
-        # if that category has not been highlighed for exclusion
+        # Merge overlapping geometries within the category (unless excluded)
         if category not in excluded_categories:
             subset = _clean(combine_overlapping_groups(subset))
+            if subset.empty:
+                continue
             combined_parts.append(subset)
 
         print(f"Combining category: {category}")
 
-        # Either create or add to the 'combined' data structure
-        # which is a conglomerate of all previously examined geometries
-        # as to not allow overlap between geometries of different categories
-        category_union = _polygonal_only(subset.geometry.union_all())
-        if category_union is not None:
-            claimed = (
-                category_union if claimed is None
-                else _polygonal_only(claimed.union(category_union))
-            )
+        # Whatever is left in this category (excluded or not) is now claimed.
+        # No union needed: subtract_claimed unions only the nearby pieces on demand.
+        claimed_parts.append(subset.geometry.reset_index(drop=True))
+        claimed = gpd.GeoSeries(
+            pd.concat(claimed_parts, ignore_index=True), crs=df.crs
+        )
 
     if not combined_parts:
-        return gpd.GeoDataFrame(columns=df.columns.drop('_category'), crs=df.crs)
+        return gpd.GeoDataFrame(columns=df.columns, crs=df.crs)
 
     result = pd.concat(combined_parts, ignore_index=True)
     result = gpd.GeoDataFrame(result, geometry='geometry', crs=df.crs)
 
     print("Combination Successful")
     print("---------------------------")
+
     return result
