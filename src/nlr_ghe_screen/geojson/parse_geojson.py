@@ -200,8 +200,10 @@ def parse_api_response(data, bbox, is_df=False):
     Args:
         data (dict | geopandas.GeoDataFrame): An Overpass API JSON response if
             ``is_df`` is ``False``, or an OSMnx GeoDataFrame if ``is_df`` is ``True``.
-        is_df (bool, optional): Whether ``data`` is already a GeoDataFrame from OSMnx
-            rather than raw Overpass JSON. Defaults to ``False``.
+        bbox (tuple[float, float, float, float]): The bounding box as
+                    ``(south, west, north, east)``, i.e. ``(lat_min, lon_min, lat_max,
+                    lon_max)``
+        is_df (bool): Whether the given data is the result of an OSMNX query or Overpass API call
  
     Returns:
         geopandas.GeoDataFrame: Polygon features with the columns above plus

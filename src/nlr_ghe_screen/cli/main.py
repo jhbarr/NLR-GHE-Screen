@@ -116,7 +116,7 @@ def run(args):
 
     result = get_overpass_no_splitting(bbox=bbox)
 
-    gdf = parse_api_response(data=result, bbox=bbox)
+    gdf = parse_api_response(data=result, bbox=bbox, is_df=False)
 
     validate_geojson(data=gdf)
 

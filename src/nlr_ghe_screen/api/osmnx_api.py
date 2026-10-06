@@ -7,7 +7,7 @@ import osmnx as ox
 ox.settings.use_cache = False          # don't write/read the local cache
 # ox.settings.requests_timeout = 30      # used for both the [timeout:N] and the HTTP timeout
 ox.settings.overpass_rate_limit = True # osmnx checks the server's slot status and waits if busy
-ox.settings.max_query_area_size = 1000 * 1000 * 1000  # osmnx can automatically split queries if the query area is too large
+# ox.settings.max_query_area_size = 1000 * 1000 * 1000  # osmnx can automatically split queries if the query area is too large
 
 # ox.settings.overpass_url = "https://overpass-api.de/api"  # default; change to use another instance
 
