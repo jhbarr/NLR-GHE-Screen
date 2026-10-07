@@ -11,12 +11,13 @@ from nlr_ghe_screen.cli.parse_args import parse_arguments
 from nlr_ghe_screen.api.osm_api import get_overpass, get_overpass_no_splitting, OverpassError
 from nlr_ghe_screen.api.otp_api import get_opentop, OpentopError
 from nlr_ghe_screen.api.osmnx_api import get_osmnx, OXError
+from nlr_ghe_screen.api.osm_api_v2 import get_overpass_with_splitting
 
 from nlr_ghe_screen.geojson.parse_geojson import parse_api_response
 from nlr_ghe_screen.geojson.validate_geojson import validate_geojson
 
 from nlr_ghe_screen.processing.geometry import combine_geometries, classify_geometries
-from nlr_ghe_screen.processing.ms_cross_validation import cross_validate_osm_spaces
+from nlr_ghe_screen.processing.ms_cross_validation import get_ms_building_data, footprints_for_points
 from nlr_ghe_screen.processing.elevation import categorize_steepness
 
 # Load the environment variables
@@ -114,15 +115,16 @@ def run(args):
     """
     bbox = parse_arguments(args)
 
-    result = get_overpass_no_splitting(bbox=bbox)
+    result = get_overpass_with_splitting(bbox=bbox)
 
     gdf = parse_api_response(data=result, bbox=bbox, is_df=False)
 
     validate_geojson(data=gdf)
 
-    # gdf = cross_validate_osm_spaces(bbox=bbox, osm_spaces=gdf) # ** Optional Step **
+    ms_buildings = get_ms_building_data(bbox=bbox)
+    gdf = footprints_for_points(gdf=gdf, ms_buildings=ms_buildings)
 
-    gdf = combine_geometries(df=gdf) # ** Optional Step **
+    gdf = classify_geometries(df=gdf) # ** Optional Step **
 
     get_opentop(bbox=bbox, api_key=os.getenv("API_KEY"))
 

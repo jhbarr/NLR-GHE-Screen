@@ -153,7 +153,7 @@ def load_tile(url, quadkey, bbox_geom):
     )
 
 
-def get_ms_building_data(quadkeys, bbox):
+def get_ms_building_data(bbox):
     """Extract all MS building footprints within a given bounding box
 
     Using all of the quadkeys associated with the MS footprint tiles that overlap with the provided bounding box,
@@ -163,8 +163,7 @@ def get_ms_building_data(quadkeys, bbox):
     This process utilizes a maximum of four concurrent threads to speed up the time it takes to load and process
     each MS footprint tile
 
-    Paramters:
-        quadkeys (list[str]): A list of the quadkeys associated with MS footprint tiles
+    Args:
         bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
 
     Returns:
@@ -175,8 +174,10 @@ def get_ms_building_data(quadkeys, bbox):
     )
     links['QuadKey'] = links['QuadKey'].astype(str)
 
+    quadkeys = extract_quadkeys(bbox=bbox)
     selected_regions = links[
-        (links['QuadKey'].isin(quadkeys)) & (links['Location'] == 'UnitedStates')
+        # (links['QuadKey'].isin(quadkeys)) & (links['Location'] == 'UnitedStates')
+        (links['QuadKey'].isin(quadkeys)) # May cause problems for US locations
     ]
     if selected_regions.empty:
         return # Return nothing if there are no quadkeys found in the region
