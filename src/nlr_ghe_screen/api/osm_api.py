@@ -318,10 +318,10 @@ def run_overpass_query(query, query_timeout=DEFAULT_QUERY_TIMEOUT, max_retries=3
             last_error = e
 
         except requests.exceptions.ConnectionError as e:
-            last_error = OverpassConnectionError(f"Connection failed - Retrying: {e}")
+            last_error = e
 
         except requests.exceptions.RequestException as e:
-            last_error = OverpassError(f"Unexpected request error - Retrying: {e}")
+            last_error = e
         
         except (OverpassServerBusyError, OverpassTimeoutError) as e:
             # Depending on the elapsed time either retry or force split 

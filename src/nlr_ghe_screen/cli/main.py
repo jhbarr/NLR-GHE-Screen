@@ -42,7 +42,7 @@ def aggregate_metadata(df):
     Returns:
         dict: Dictionary containing all descriptive metadata
     """
-    categories = ['green_space', 'parking']
+    categories = ['waste_heat', 'water', 'parking', 'green_space']
 
     # Add the categories to the rows to which they apply
     df = df.copy()

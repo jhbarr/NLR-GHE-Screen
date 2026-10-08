@@ -18,4 +18,4 @@ Once you have all prerequisites installed, clone the repository using
 -----------------
 - To execute API calls to the OpenTopography database, each user must create a free account and generate a free API key.
 - To do so, go to the `OpenTopography website <https://opentopography.org/>`_ and create an account. Once the account is setup, there should be an option to generate a free API key.
-- Create a .env file in the newly cloned repository and add the line: API-KEY=users_api_key
+- Create a .env file in the newly cloned repository and add the line: API_KEY="users_api_key"
