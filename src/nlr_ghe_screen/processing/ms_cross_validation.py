@@ -203,7 +203,7 @@ def get_ms_building_data(bbox):
 # MS Footprint Use Functions
 # ---------------------------------------------------------------------------
 
-def footprints_for_points(gdf, ms_buildings):
+def footprints_for_points(gdf, bbox):
     """Assigns MS building footprints to corresponding Point geometries in a GeoDataframe
 
     Point geometries in a GeoDataframe are a set of coordinates. This function takes those coordinates and checks
@@ -212,11 +212,16 @@ def footprints_for_points(gdf, ms_buildings):
 
     Args:
         gdf (geopandas.GeoDataframe): A GeoDataframe containing OSM space information
-        ms_buildings (geopandas.GeoDataframe): A GeoDataframe containing MS Footprint building footprtint shapes
+        bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
 
     Returns:
         geopandas.GeoDataframe: A new dataframe with Point geometries converted to corresponding Polygon geometries
     """
+    print("\n---------------------------")
+    print("Gathering MS Footprint data")
+
+    ms_buildings = get_ms_building_data(bbox=bbox)
+
     gdf = gdf.to_crs(ms_buildings.crs)
 
     # Join each point to the footprint it falls in
@@ -236,6 +241,9 @@ def footprints_for_points(gdf, ms_buildings):
     new_geom = gdf.geometry.copy()
     new_geom.loc[matched.index] = matched.geometry
     result = gdf.set_geometry(new_geom)
+
+    print("All data extracted")
+    print("---------------------------")
 
     return result
 

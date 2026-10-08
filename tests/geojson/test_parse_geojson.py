@@ -14,7 +14,7 @@ from nlr_ghe_screen.geojson.parse_geojson import (
 # Columns that parse_api_response must always return
 EXPECTED_COLUMNS = {
     "name", "landuse", "leisure", "natural", "boundary", "amenity",
-    "geometry", "type", "district_system_type",
+    "waste_heat_source", "water", "geometry", "type", "district_system_type",
 }
 
 TEST_BBOX = (39.69, -105.27, 39.79, -105.16)
@@ -136,6 +136,9 @@ class TestOSMNXParse:
         osmnx_gdf["nodes"] = [[1, 2, 3]] * len(osmnx_gdf)
  
         gdf = parse_api_response(osmnx_gdf, TEST_BBOX, is_df=True)
+
+        print(gdf.columns)
+        print(EXPECTED_COLUMNS)
  
         assert set(gdf.columns) == EXPECTED_COLUMNS
 

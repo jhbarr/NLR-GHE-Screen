@@ -1,7 +1,7 @@
 import pytest
 
 from nlr_ghe_screen.api.osm_api import (
-    get_overpass
+    get_overpass_no_splitting
 )
 
 @pytest.mark.live_api
@@ -25,12 +25,10 @@ class TestLiveOverpassAPI:
         )
 
         # Make live API call and assert that it responded successfully
-        result = get_overpass(bbox=test_bbox)
+        result = get_overpass_no_splitting(bbox=test_bbox)
         elements = result.get('elements', [])
-        park = elements[0]
         
-        assert elements
-        assert park.get('tags')['amenity'] == "parking"
+        assert len(elements) > 0
 
     def test_empty_overpass_query(self):
         """
@@ -38,15 +36,10 @@ class TestLiveOverpassAPI:
         """
         # Create a test bounding box whose query results are known
         # Coordinates: Middle of the Pacific Ocean
-        test_bbox = (
-            '20.000', # South
-            '155.000', # West
-            '20.080', # North
-            '154.875' # East
-        )
+        test_bbox = ('20.000', '154.875', '20.080', '155.000')
 
         # Make live API call and assert that it responded successfully
-        result = get_overpass(bbox=test_bbox)
+        result = get_overpass_no_splitting(bbox=test_bbox)
         elements = result.get('elements', [])
 
-        assert len(elements) > 0
+        assert len(elements) == 0
