@@ -45,7 +45,7 @@ def get_osmnx(bbox):
     """
     Fetch OSM features matching TAGS inside a bounding box.
 
-    Parameters:
+    Args:
         bbox (Tuple[float]): (lat_min, lon_min, lat_max, lon_max),
             i.e. (south, west, north, east) - same convention as the old code.
 
@@ -79,3 +79,35 @@ def get_osmnx(bbox):
     # Index is a MultiIndex of (element, id); drop nodes.
     mask = gdf.index.get_level_values("element").isin(WANTED_ELEMENTS)
     return gdf[mask]
+
+
+def get_road_network(bbox):
+    """Extracts all of the road networks and intersections from OSMNX within the provided bounding box
+
+    This function utilizes the ``osmnx.graph_from_bbox()`` feature to extract all of the different
+    roads and intersections from an area. This information is useful when creating clusters of buildings 
+    as it can be used to define a distance metric.
+
+    Args:
+        bbox (Tuple[float]): (lat_min, lon_min, lat_max, lon_max),
+            i.e. (south, west, north, east) - same convention as the old code.
+    
+    Returns:
+        networkx.MultiDiGraph: A networkx graph of the roads and intersections
+    """
+    print("\n---------------------------")
+    print("Post - Networkx road network request")
+
+    south, west, east, north = bbox
+    graph = ox.graph_from_bbox(
+        bbox=(west, south, east, north),
+        network_type='drive'
+    )
+
+    # Convert the graph to undirected
+    graph = graph.to_undirected()
+
+    print("Success - Query Received")
+    print("---------------------------")
+
+    return graph
