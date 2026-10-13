@@ -13,6 +13,7 @@ dependencies = [
     "matplotlib>=3.9.4",
     "osm2geojson>=0.3.2",
     "osmnx>=2.0.7",
+    "overturemaps>=0.18.0",
     "pytest",
     "pytest-mock>=3.15.1",
     "python-dotenv>=1.2.1",

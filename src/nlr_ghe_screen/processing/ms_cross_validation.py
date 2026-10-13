@@ -10,6 +10,7 @@ import requests
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 
+from overturemaps import geodataframe
 
 # ---------------------------------------------------------------------------
 # Coordinates to MS Footprint Tiles / Quadkey
@@ -196,6 +197,29 @@ def get_ms_building_data(bbox):
     return gpd.GeoDataFrame(
         pd.concat(gdfs, ignore_index=True), geometry='geometry', crs="EPSG:4326"
     )
+
+
+
+# ---------------------------------------------------------------------------
+# MS Footprint data aggregation - Via Overturemaps
+# ---------------------------------------------------------------------------
+
+def get_overturemaps_data(bbox):
+    """Retrieves all of the Overturemap data from the bounding box pertaining to 'buildings'
+    
+    This function utilizes the :func:`geodataframe` function from the overturemaps Python package
+
+    Args:
+        bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
+    
+    Returns:
+        geopandas.GeoDataframe: A geodataframe with all of the building data from the provided bounding box
+    """
+    south, west, north, east = bbox
+    gdf = geodataframe("building", bbox=(west, south, east, north))
+
+    return gdf
+
 
 
 
