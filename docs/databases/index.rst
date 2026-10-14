@@ -9,3 +9,4 @@ Reference guide for the different data sources utilized in the GHE Screening pro
     opentopography
     ms_footprint
     esa_worldcover
+    hydrolakes

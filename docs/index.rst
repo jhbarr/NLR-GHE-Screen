@@ -18,8 +18,9 @@ Introduction to the program here
    :maxdepth: 1
    :caption: Features
 
-   ghe_features/index
-   cluster_features/index
+   features/ghe_features/index
+   features/cross_validation_features/index
+   features/cluster_features/index
    visuals/index
 
 .. toctree::

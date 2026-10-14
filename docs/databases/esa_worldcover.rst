@@ -6,7 +6,8 @@ surface based on what kind of vegetation / land use predominates that area.
 Usage
 -----
 This data was used in the process of software development to cross reference the accuracy of the OpenStreetMap greenspace data. As of the 
-most recent software version, the data is not integrated into the final program to help with any cross validation procedures. 
+most recent software version, the data is not integrated into the final program to help with any cross validation procedures. However, a user can
+utilize it's functionality through the cross_validation_visuals.ipynb Python notebook to manually check the accuracy of the OSM database themselves. 
 
 License
 -------

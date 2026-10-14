@@ -99,6 +99,17 @@ def grow_cluster(
     """
     """
     pass
+    # ghe_group = gdf[gdf['seed_cluster'] == idx].copy()
+    # group_union = ghe_group.geometry.union_all()
+    # group_centroid = ghe_group.geometry.union_all().centroid
+
+    # geoms = ms_buildings.geometry.to_numpy()
+    # buildings_tree = shapely.STRtree(geoms)
+
+    # area = shapely.box(*group_union.bounds).buffer(250)
+    # centroid_buffer = group_centroid.buffer(500)
+    # idx_nearby = buildings_tree.query(area, predicate='intersects')
+    # # idx_nearby = buildings_tree.query(centroid_buffer, predicate='dwithin', distance=100)
 
 
 

@@ -8,7 +8,6 @@ that information.
 should be used by the user to check the accuracy of the program and interact with its raw results in a more
 approachable manner.
 
-|
 
 ghe_location_visuals.ipynb
 --------------------------
@@ -16,7 +15,6 @@ This notebook simply launches a notebook cell that allows the user to visualize 
 of the different spaces compiled by the program. Additionally, in this exploratory mode, for each of the spaces, 
 the user can view what kind of space it is, and any other compiled attribute. 
 
-|
 
 elevation_data_visuals.ipynb
 ----------------------------
@@ -24,10 +22,9 @@ This notebook allows the user to both view the elevaiton and gradient of specifi
 program data, or view the entire inner elevation changes and gradient changes of the bounding box area described
 by the user in the first place. 
 
-|
 
 cross_validation_visuals.ipynb
-------------------------------
+-----------------------------
 This notebook allows users to perform cross-validation on areas designated as greenspace and water using the ESA WorldCover database. 
 It leverages functionality from the processing/land_area_validation.py script to determine what percentage of the designated greenspace and water 
 areas can be verified as those land-use types using ESA data.
