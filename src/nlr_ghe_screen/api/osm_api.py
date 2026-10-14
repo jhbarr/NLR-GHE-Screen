@@ -12,7 +12,7 @@ HTTP_TIMEOUT_BUFFER = 5
 MAX_SPLIT_DEPTH = 4
 REQUEST_PAUSE = 1.0
 
-API_TIME_THRESHOLD = 10.0
+API_TIME_THRESHOLD = 7.0
 
 # ---------------------------------------------------------------------------
 # Exceptions

@@ -4,11 +4,103 @@ import numpy as np
 import osmnx as ox
 import networkx as nx
 
+import scipy
 from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.spatial.distance import squareform, pdist
 from scipy.sparse.csgraph import connected_components
 from scipy.sparse import coo_matrix
 import shapely
+
+
+
+# ---------------------------------------------------------------------------
+# Functions under development
+# ---------------------------------------------------------------------------
+
+def group_ghes(
+        dist_matrix: scipy.sparse.csr_matrix,
+        is_dense: bool = False,
+        max_distance: int = 500
+) -> list[int]:
+    """Groups ghe locations and waste heat sources together based on their proximity
+
+    This function is used to create groups consisting of both ghe locations and waste heat sources
+    to be used as 'seeds' for clustering of buildings in a TEN. These locations will be combined into one
+    seed group if they are within a certain distance of each other. 
+
+    If the provided distance matrix is dense, then we can run simple complete clustering on the elements of that matrix
+
+    Args:
+        dist_matrix (scipy.sparse.csr_matrix): A distance matrix describing the distances between geometries that are up 
+            to max_distance meters away from each other
+        is_dense (bool): Whether the provided dist_matrix is dense. 
+        max_distance (int): The maximum distance any element in a cluster can be from any other element
+            
+    Returns:
+        list[int]: Cluster labels for each of the ghe / waste heat source locations
+    """
+    if not is_dense:
+        n = dist_matrix.shape[0]
+        indptr, indices = dist_matrix.indptr, dist_matrix.indices # indptr maps the rows of the matrix to their corresponding values
+
+        # Indices - The column position for each corresponding value in the data array
+        # indptr - pointers mapping rows to the slices of data and indices
+
+        # Neighbor sets
+        # Where neighbors[i] is the set of all geometries within a radius of geometry i
+        neighbors = [set(indices[indptr[i] : indptr[i + 1]]) - {i} for i in range(n)]
+
+        unassigned = set(range(n))
+        clusters = []
+
+        # Process high-degree nodes first
+        order = sorted(range(n), key=lambda i: -len(neighbors[i]))
+
+        for seed in order:
+            # Do not process the node if it has already been assigned a cluster
+            if seed not in unassigned:
+                continue
+
+            cluster = [seed]
+            unassigned.discard(seed)
+
+            # Candidate neighbors must be unassigned and adjacent to the seed
+            candidates = neighbors[seed] & unassigned
+
+            while candidates:
+                # Pick the candidate with the most remaining neighbors
+                best = max(candidates, key=lambda c: len(neighbors[c] & candidates))
+                cluster.append(best)
+                unassigned.discard(best)
+
+                # Keep only candidates adjacent to everyone in the cluster so far
+                candidates = (candidates & neighbors[best]) - {best} # Set intersection 
+
+            clusters.append(cluster)
+
+        labels = np.empty(dist_matrix.shape[0], dtype=int)
+        for k, c in enumerate(clusters):
+            labels[c] = k
+
+        return labels
+
+    else:
+        Z = linkage(squareform(dist_matrix, checks=False), method="complete")
+        labels = fcluster(Z, t=max_distance, criterion="distance")
+
+        return labels
+
+
+def grow_cluster(
+    ghe_group: gpd.GeoDataFrame,
+    ms_buildings: gpd.GeoDataFrame,
+    max_distance: int = 500
+):
+    """
+    """
+    pass
+
+
 
 # ---------------------------------------------------------------------------
 # Construct dist matrix + cluster buildings
