@@ -4,6 +4,7 @@ Cross Validation Case Study
 ===========================
 
 Two case studies of the cross-validation procedure were performed – examining Seattle, WA and Golden, CO. For both cases, a small amount of OpenStreetMap greenspace could not be cross validated as greenspace according to the ESA data. 
+
 *Golden, CO* 
 
 -	2% of the total greenspace could not be cross validated. 

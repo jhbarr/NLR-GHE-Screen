@@ -99,6 +99,12 @@ def export_results(df, response):
         query_metadata = {key: response[key] for key in keys if key in response}
         json.dump(query_metadata, file, indent=4)
 
+    # Export the general disclaimer text file
+    file_path = export_dir / 'general_disclaimer.txt'
+    with open('disclaimer_output.txt', 'r') as origin, open(file_path, 'w', encoding='utf-8') as file:
+        for line in origin:
+            file.write(line)
+
 
 # ---------------------------------------------------------------------------
 # Execution Functions

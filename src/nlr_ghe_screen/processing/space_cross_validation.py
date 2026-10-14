@@ -161,7 +161,7 @@ def cross_validate_land(clips, land_codes):
     Returns:
         float: The percentage of the provided geometries whose land cover majority was not that of the provided land codes
     """
-    pct_covered = []
+    non_covered = []
     for idx, (arr, transform) in clips.items():
         arr = arr.compressed()
 
@@ -169,9 +169,9 @@ def cross_validate_land(clips, land_codes):
         pct_covered = 100 * mask.sum() / mask.size
 
         if pct_covered <= 20:
-            pct_covered.append(idx)
+            non_covered.append(idx)
 
-    return pct_covered
+    return non_covered
 
 
 
