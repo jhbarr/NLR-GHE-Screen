@@ -2,9 +2,8 @@ ORNL USA Structures
 ===================
 A national geospatial dataset of building footprints for structures larger than 450 sq ft, covering all US states and territories.
 This dataset is curated and updated by FEMA and ORNL. Each building structure has information pertaining to estimated height, 
-estimated sq footage, type, primary occupancy type. 
-
-This data is partially measured but some of it is based on machine learning estimates. 
+estimated sq footage, type, primary occupancy type. This data is partially measured but some of it is based on machine learning estimates. 
+For more information about the database, see the `ORNL USA Structures Website <https://gis-fema.hub.arcgis.com/pages/usa-structures>`_
 
 Usage
 -----

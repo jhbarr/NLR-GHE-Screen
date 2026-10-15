@@ -24,8 +24,7 @@ OUTPUT_FIELDS = [
 LAYER_URL = "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/USA_Structures_View/FeatureServer/0"
 
 
-def get_footprints_from_ornl(
-        layer_url: str,
+def get_ornl_footprints(
         bbox: tuple[float],
         sleep: float = 0.2
 ) -> gpd.GeoDataFrame:
@@ -42,6 +41,9 @@ def get_footprints_from_ornl(
     Returns:
         geopandas.GeoDataframe: A dataframe containing all of the building footprint information 
     """
+    print("\n---------------------------")
+    print("Retrieving ORNL Structure Data")
+
     south, east, north, west = bbox
     params = {
         "where": "1=1",
@@ -56,16 +58,16 @@ def get_footprints_from_ornl(
     }
 
     # total number of matches
-    total = requests.get(f"{layer_url}/query",
+    total = requests.get(f"{LAYER_URL}/query",
                             params={**params, "returnCountOnly": "true", "f": "json"},
                             timeout=60).json()["count"]
     print("total features:", total)
 
     features, offset = [], 0
-    while offset < 6000:
+    while offset < min(total, 6000):
         p = {**params, "resultOffset": offset, "orderByFields": "OBJECTID"}
         # omit resultRecordCount so the server uses its own limit
-        r = requests.get(f"{layer_url}/query", params=p, timeout=120)
+        r = requests.get(f"{LAYER_URL}/query", params=p, timeout=120)
         r.raise_for_status()
         js = r.json()
         if "error" in js:
@@ -78,6 +80,9 @@ def get_footprints_from_ornl(
         print(f"{offset}/{total}")
         time.sleep(sleep)
 
+    print("Success - Data retrieved")
+    print("---------------------------")
+
     return gpd.GeoDataFrame.from_features(features, crs="EPSG:4326")
 
 
@@ -86,7 +91,7 @@ def get_footprints_from_ornl(
 # Building footprint data aggregation - Via Overturemaps
 # ---------------------------------------------------------------------------
 
-def get_overturemaps_data(
+def get_overture_footprints(
         bbox: tuple[float]
     ) -> gpd.GeoDataFrame:
     """Retrieves all of the Overturemap data from the bounding box pertaining to 'buildings'
@@ -99,7 +104,23 @@ def get_overturemaps_data(
     Returns:
         geopandas.GeoDataframe: A geodataframe with all of the building data from the provided bounding box
     """
+    print("\n---------------------------")
+    print("Retrieving Overture Maps Data")
+
     south, west, north, east = bbox
     gdf = geodataframe("building", bbox=(west, south, east, north))
+
+    desired_attributes = [
+        'height',
+        'num_floors',
+        'subtype',
+        'class',
+        'geometry'
+    ]
+    gdf = gdf[desired_attributes]
+    gdf = gdf.set_crs(epsg=4326)
+
+    print("Success - Data retrieved")
+    print("---------------------------")
 
     return gdf

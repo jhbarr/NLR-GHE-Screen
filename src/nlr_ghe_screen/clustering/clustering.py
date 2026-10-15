@@ -9,15 +9,72 @@ from scipy.cluster.hierarchy import linkage, fcluster
 from scipy.spatial.distance import squareform, pdist
 from scipy.sparse.csgraph import connected_components
 from scipy.sparse import coo_matrix
+from shapely.geometry import Point
 import shapely
 
 
+# ---------------------------------------------------------------------------
+# Construct dist matrix
+# ---------------------------------------------------------------------------
+
+def construct_euclidian_dist_matrix(
+        buildings_df: gpd.GeoDataFrame,
+        max_distance: int
+) -> np.ndarray:
+    """Constructs a distance matrix of the buildings to be clustered based on their euclidian distance
+    to each other.
+
+    This matrix can be used in clustering to limit the maximum distance members of a cluster can be
+    apart from each other. 
+
+    * Note * - This function expects the buildings_df to be in a CRS that allows for meter 
+    based calculations, such as UTM.
+    
+    Args:
+        buildings_df (geopandas.GeoDataframe): The dataframe with building geometry information
+        max_distance (int): The maximum distance any two buildings in a cluster can be from each other
+        
+    Returns;
+        np.ndarray: The numpy array adjacency matrix describing the distances between buildings
+    """
+    print("Constructing distance matrix - euclidian")
+
+    geoms = buildings_df.geometry.to_numpy()
+    tree = shapely.STRtree(geoms)
+
+    # 'dwithin' finds all geometries that are located within a specific max distance
+    # of a given target geometry
+    left, right = tree.query(geoms, predicate='dwithin', distance=max_distance) # 2xK array, where each pair represents a pair of close buildings
+    mask = left < right # keep each pair once
+    left, right = left[mask], right[mask]
+
+    # returns a 1D array with distances for each pair
+    d = shapely.distance(geoms[left], geoms[right])
+
+    # Create a sparse coordinate 'coo' matrix 
+    n = len(geoms)
+    rows = np.concatenate([left, right])
+    cols = np.concatenate([right, left])
+    vals = np.concatenate([d, d])
+
+    return coo_matrix((vals, (rows, cols)), shape=(n, n)).tocsr()
+
+    # centroids = projected.geometry.centroid 
+    # coords = np.column_stack((
+    #     centroids.x.to_numpy(),
+    #     centroids.y.to_numpy()
+    # ))
+
+    # return squareform(pdist(coords, metric='euclidean'))
+
+
+
 
 # ---------------------------------------------------------------------------
-# Functions under development
+# Aggregate GHE / Waste heat sources as seeds for building clusters
 # ---------------------------------------------------------------------------
 
-def group_ghes(
+def seed_cluster(
         dist_matrix: scipy.sparse.csr_matrix,
         is_dense: bool = False,
         max_distance: int = 500
@@ -91,82 +148,171 @@ def group_ghes(
         return labels
 
 
-def grow_cluster(
-    ghe_group: gpd.GeoDataFrame,
-    ms_buildings: gpd.GeoDataFrame,
-    max_distance: int = 500
-):
-    """
-    """
-    pass
-    # ghe_group = gdf[gdf['seed_cluster'] == idx].copy()
-    # group_union = ghe_group.geometry.union_all()
-    # group_centroid = ghe_group.geometry.union_all().centroid
-
-    # geoms = ms_buildings.geometry.to_numpy()
-    # buildings_tree = shapely.STRtree(geoms)
-
-    # area = shapely.box(*group_union.bounds).buffer(250)
-    # centroid_buffer = group_centroid.buffer(500)
-    # idx_nearby = buildings_tree.query(area, predicate='intersects')
-    # # idx_nearby = buildings_tree.query(centroid_buffer, predicate='dwithin', distance=100)
-
-
-
-# ---------------------------------------------------------------------------
-# Construct dist matrix + cluster buildings
-# ---------------------------------------------------------------------------
-
-def construct_euclidian_dist_matrix(
-        buildings_df: gpd.GeoDataFrame,
-        max_distance: int
+def geometric_median(
+        points: np.ndarray,
+        tol: float = 1e6,
+        max_iter: int = 500
 ) -> np.ndarray:
-    """Constructs a distance matrix of the buildings to be clustered based on their euclidian distance
-    to each other.
+    """Finds the geometric median point from a set of provided points
 
-    This matrix can be used in clustering to limit the maximum distance members of a cluster can be
-    apart from each other. 
+    This function is used to find the geometric median point of a cluster. Each of the provided points
+    should be the centroids of the different geometries in a cluster. This can be used to find the point 
+    closest to the densest part of the cluster, and so is unaffected by geometries that may be irregularly shaped
+    compared to other geometries and thus does not throw off the center. 
 
-    * Note * - This function expects the buildings_df to be in a CRS that allows for meter 
-    based calculations, such as UTM.
-    
+    * Note * - This funciton expects the provided points to be projected in a UTM CRS
+
     Args:
-        buildings_df (geopandas.GeoDataframe): The dataframe with building geometry information
-        max_distance (int): The maximum distance any two buildings in a cluster can be from each other
-        
-    Returns;
-        np.ndarray: The numpy array adjacency matrix describing the distances between buildings
+        points (np.ndarray): The centroid points of the geometries
+        tol (float): A small value to prevent dividing by zero
+        max_iter (int): The max number of iterations to converge on the median point
+    
+    Returns:
+        np.ndarray: The geometric median point
     """
-    print("Constructing distance matrix - euclidian")
+    # Intialize the median point to be the mean of all centroid points
+    center_point = points.mean(axis=0)
 
-    geoms = buildings_df.geometry.to_numpy()
-    tree = shapely.STRtree(geoms)
+    for _ in range(max_iter):
+        # Get the distance betwen the center point and all other points
+        distance = np.linalg.norm(points - center_point, axis=1)
+        distance = np.where(distance < tol, tol, distance) # Clamp the value of distance to a non-zero number
 
-    # 'dwithin' finds all geometries that are located within a specific max distance
-    # of a given target geometry
-    left, right = tree.query(geoms, predicate='dwithin', distance=max_distance) # 2xK array, where each pair represents a pair of close buildings
-    mask = left < right # keep each pair once
-    left, right = left[mask], right[mask]
+        # Get the weight of the distance value
+        # further away points are weighted less
+        weight = 1 / distance
 
-    # returns a 1D array with distances for each pair
-    d = shapely.distance(geoms[left], geoms[right])
+        # Set the new center point
+        # Turn the weights into a column and multiply each point by those weights
+        new_center = (points * weight[:, None]).sum(axis=0) / weight.sum()
 
-    # Create a sparse coordinate 'coo' matrix 
-    n = len(geoms)
-    rows = np.concatenate([left, right])
-    cols = np.concatenate([right, left])
-    vals = np.concatenate([d, d])
+        if np.linalg.norm(center_point - new_center) < tol: # If the new point moved less than 1e6, we've converged
+            break
+        center_point = new_center
 
-    return coo_matrix((vals, (rows, cols)), shape=(n, n)).tocsr()
+    return center_point
 
-    # centroids = projected.geometry.centroid 
-    # coords = np.column_stack((
-    #     centroids.x.to_numpy(),
-    #     centroids.y.to_numpy()
-    # ))
 
-    # return squareform(pdist(coords, metric='euclidean'))
 
+def find_seed_centroids(
+        ghe_locations: gpd.GeoDataFrame,
+        cluster_col: str = 'cluster'
+) -> gpd.GeoDataFrame:
+    """Aggregates the geometric median centroids of each seed cluster in the provided dataframe
+
+    This function is used to gather Point geometries that represent the heart of each seed cluster 
+    so that a buffer of buildings can be aggregated around the heart of each seed
+
+    * Note * - The function expects the GHE locations to be in a projected UTM CRS
+
+    Args:s
+        ghe_locations (geopandas.GeoDataframe): A GeoDataframe of GHE locations pre-labeled with cluster assignments
+    
+    Returns:
+        geopandas.GeoDataframe: Dataframe containing point objects and the label associated with their cluster
+    """
+    centroids = ghe_locations.geometry.centroid
+    coords = np.column_stack([centroids.x, centroids.y])
+
+    rows = []
+    for label, idx in ghe_locations.groupby(cluster_col).indices.items():
+        points = coords[idx]
+        if len(points) == 1:
+            center = points[0]
+        else:
+            center = geometric_median(points)
+
+        rows.append({cluster_col: label, 'geometry': Point(center)})
+
+    return gpd.GeoDataFrame(rows, geometry='geometry', crs=ghe_locations.crs)
+
+
+
+# ---------------------------------------------------------------------------
+# Gather and Rank Nearby Buildings
+# ---------------------------------------------------------------------------
+
+def find_nearby_buildings(
+    seed_cluster_centroids: gpd.GeoDataFrame,
+    building_data: gpd.GeoDataFrame,
+    max_distance: int = 500
+) -> gpd.GeoDataFrame:
+    """Find all buildings within a certain distance of the seed cluster centroid of each seed cluster
+
+    Thid function gathers all building footprints that are reasonably close to each seed cluster.
+    This information can inform which buildings should be included and excluded from consideration for
+    inclusion in certain TEN clusters
+
+    *Note* - This function expects each GeoDataframe to be in a projected UTM CRS
+
+    Args:
+         seed_cluster_centroids (geopandas.GeoDataframe): A dataframe consisting of points representing the geometric
+            median points of each seed cluster
+        building_data (geopandas.GeoDataframe): A dataframe with all relevant building data 
+        max_distance (int): How far (in meters) a building can be located from a seed cluster centroid 
+            to be considered 
+    
+    Returns:    
+        geopandas.GeoDataframe: A dataframe of cluster assignments for each of the buildings
+            A building can appear multiple times under different cluster assignments if it is close to multiple
+            seed clusters
+    """
+    building_geoms = building_data.geometry.to_numpy()
+    buildings_tree = shapely.STRtree(building_geoms)
+
+    centroid_geoms = seed_cluster_centroids.geometry.to_numpy()
+
+    # Returns a (2, n_matches) array
+    # row 0 = positions in centroid_geoms
+    # row 1 = positions in teh buildings tree
+    center_idx, building_idx = buildings_tree.query(
+        centroid_geoms,
+        predicate='dwithin',
+        distance=max_distance
+    )
+
+    labels = seed_cluster_centroids['seed_cluster'].to_numpy()
+
+    matches = building_data.iloc[building_idx].copy()
+    matches['cluster'] = labels[center_idx]
+
+    return matches
+
+
+
+# ---------------------------------------------------------------------------
+# Grow Cluster From Seed
+# ---------------------------------------------------------------------------
+
+def grow_cluster(
+    cluster_id: int,
+    seed_centroids: gpd.GeoDataFrame,
+    ghe_locations: gpd.GeoDataFrame,
+    building_data: gpd.GeoDataFrame
+):
+    """Construct a cluster based sequentially
+
+    The cluster is constructed sequentially based on multiple factors including how close a building is to the 
+    ghe locations and how complementary its thermal load profile is to those locations. 
+
+    Args:
+        cluster_id (int): The cluster assignment label for the current working cluster
+        seed_centroids (geopandas.GeoDataframe): A dataframe containing each of the centroids for the seed clusters
+        ghe_locations (geopandas.GeoDataframe): A dataframe containing ghe locations and their cluster assignments
+        building_data (geopandas.GeoDataframe): A dataframe containing building information and their preliminary
+            cluster assignments
+    
+    Returns:
+
+    """
+    centroid = seed_centroids[seed_centroids['cluster'] == cluster_id]
+    
+
+
+
+# ---------------------------------------------------------------------------
+# DEPRECATED - Cluster Buildings
+# ---------------------------------------------------------------------------
 
 def cluster_buildings(
         dist_matrix: np.ndarray,

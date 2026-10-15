@@ -1,4 +1,8 @@
 import osmnx as ox
+import geopandas as gpd
+import networkx as nx
+from shapely.geometry import LineString, Point
+import folium
 
 # ---------------------------------------------------------------------------
 # osmnx settings
@@ -8,6 +12,8 @@ ox.settings.use_cache = False          # don't write/read the local cache
 # ox.settings.requests_timeout = 30      # used for both the [timeout:N] and the HTTP timeout
 ox.settings.overpass_rate_limit = True # osmnx checks the server's slot status and waits if busy
 # ox.settings.max_query_area_size = 1000 * 1000 * 1000  # osmnx can automatically split queries if the query area is too large
+ox.settings.http_user_agent = "ghe-screen/1.0 (contact: jbarrows@nrel.gov)"
+ox.settings.http_referer = "my-project"
 
 # ox.settings.overpass_url = "https://overpass-api.de/api"  # default; change to use another instance
 
@@ -94,15 +100,22 @@ def get_road_network(bbox):
     
     Returns:
         networkx.MultiDiGraph: A networkx graph of the roads and intersections
+
+    Raises:
+        OXError: In case of any error while retrieving the road network
     """
     print("\n---------------------------")
     print("Post - Networkx road network request")
 
-    south, west, east, north = bbox
-    graph = ox.graph_from_bbox(
-        bbox=(west, south, east, north),
-        network_type='drive'
-    )
+    south, west, north, east = bbox
+
+    try:
+        graph = ox.graph_from_bbox(
+            bbox=(west, south, east, north),
+            network_type='drive'
+        )
+    except Exception as e:
+        raise OXError(f"OSMnx exited with error: {e}")
 
     # Convert the graph to undirected
     graph = graph.to_undirected()
@@ -111,3 +124,41 @@ def get_road_network(bbox):
     print("---------------------------")
 
     return graph
+
+
+def plot_network_graph(
+    network, 
+    base_gdf,
+):
+    edge_lines = []
+    for u, v, data in network.edges(data=True):
+        if 'geometry' in data:
+            geom = data['geometry']
+        else:
+            # Build a LineString from node coordinates
+            x1, y1 = network.nodes[u]['x'], network.nodes[u]['y']
+            x2, y2 = network.nodes[v]['x'], network.nodes[v]['y']
+            geom = LineString([(x1, y1), (x2, y2)])
+        edge_lines.append({'u': u, 'v': v, 'geometry': geom})
+
+    gdf_edges = gpd.GeoDataFrame(edge_lines, crs='EPSG:4326')
+
+    # Convert NetworkX nodes to a GeoDataFrame of Points
+    node_points = []
+    for n, data in network.nodes(data=True):
+        node_points.append(
+            {'node': n, 'geometry': Point(data['x'], data['y']), **data}
+        )
+
+    gdf_nodes = gpd.GeoDataFrame(node_points, crs='EPSG:4326')
+
+    # 3. Create the base interactive map using GeoPandas .explore()
+    m = base_gdf.explore(color='green', name='Base Map')
+
+    # 4. Overlay the NetworkX edges and nodes onto the Folium map
+    gdf_edges.explore(m=m, color='blue', weight=2, name='Network Edges')
+    gdf_nodes.explore(m=m, color='red', marker_kwds={'radius': 4}, name='Network Nodes')
+
+    # Add layer control and display
+    folium.LayerControl().add_to(m)
+    m
