@@ -74,7 +74,7 @@ def construct_euclidian_dist_matrix(
 # Aggregate GHE / Waste heat sources as seeds for building clusters
 # ---------------------------------------------------------------------------
 
-def seed_cluster(
+def seed_clusters(
         dist_matrix: scipy.sparse.csr_matrix,
         is_dense: bool = False,
         max_distance: int = 500
@@ -203,7 +203,7 @@ def find_seed_centroids(
     This function is used to gather Point geometries that represent the heart of each seed cluster 
     so that a buffer of buildings can be aggregated around the heart of each seed
 
-    * Note * - The function expects the GHE locations to be in a projected UTM CRS
+    *Note* - The function expects the GHE locations to be in a projected UTM CRS
 
     Args:s
         ghe_locations (geopandas.GeoDataframe): A GeoDataframe of GHE locations pre-labeled with cluster assignments
@@ -284,15 +284,17 @@ def find_nearby_buildings(
 # Grow Cluster From Seed
 # ---------------------------------------------------------------------------
 
-def grow_cluster(
+def build_clusters(
     seed_centroids: gpd.GeoDataFrame,
     building_data: gpd.GeoDataFrame,
     max_distance: int = 250
-):
+) -> gpd.GeoDataFrame:
     """Construct a cluster based sequentially
 
     The cluster is constructed based on multiple factors including how close a building is to the 
     seed cluster centroids and how complementary its thermal load profile is to those locations. 
+
+    *Note* - This function expects each GeoDataframe to be in a projected UTM CRS
 
     Args:
         seed_centroids (geopandas.GeoDataframe): A dataframe containing each of the centroids for the seed clusters
@@ -302,7 +304,7 @@ def grow_cluster(
                     to be considered 
             
     Returns:
-
+        geopandas.GeoDataframe: A dataframe of all cluster buildings with cluster assignment labels
     """
     # Isolate the building types with the most theoretically the most promising 
     # thermal load profiles
@@ -329,7 +331,6 @@ def grow_cluster(
         building_data=viable_buildings,
         max_distance=max_distance
     )
-
 
     return nearby_buildings
 

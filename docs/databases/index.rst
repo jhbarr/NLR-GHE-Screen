@@ -10,3 +10,4 @@ Reference guide for the different data sources utilized in the GHE Screening pro
     ms_footprint
     esa_worldcover
     hydrolakes
+    ornl_structures

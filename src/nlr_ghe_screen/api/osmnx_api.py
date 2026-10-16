@@ -9,12 +9,12 @@ import folium
 # ---------------------------------------------------------------------------
 
 ox.settings.use_cache = False          # don't write/read the local cache
-# ox.settings.requests_timeout = 30      # used for both the [timeout:N] and the HTTP timeout
 ox.settings.overpass_rate_limit = True # osmnx checks the server's slot status and waits if busy
-# ox.settings.max_query_area_size = 1000 * 1000 * 1000  # osmnx can automatically split queries if the query area is too large
 ox.settings.http_user_agent = "ghe-screen/1.0 (contact: jbarrows@nrel.gov)"
 ox.settings.http_referer = "ghe-screen"
 
+# ox.settings.requests_timeout = 30      # used for both the [timeout:N] and the HTTP timeout
+# ox.settings.max_query_area_size = 1000 * 1000 * 1000  # osmnx can automatically split queries if the query area is too large
 # ox.settings.overpass_url = "https://overpass-api.de/api"  # default; change to use another instance
 
 # ---------------------------------------------------------------------------
@@ -44,7 +44,7 @@ class OXNoDataError(OXError):
     """Exception thrown when no data is returned from the OSMNX query"""
 
 # ---------------------------------------------------------------------------
-# Main query execution
+# Query OSM Information 
 # ---------------------------------------------------------------------------
 
 def get_osmnx(bbox):
@@ -78,7 +78,6 @@ def get_osmnx(bbox):
     except Exception as e:
         raise OXError(f"OSMNX exited with error: {e}")
 
-
     print("Success - Query Received")
     print("---------------------------")
 
@@ -87,7 +86,14 @@ def get_osmnx(bbox):
     return gdf[mask]
 
 
-def get_road_network(bbox):
+
+# ---------------------------------------------------------------------------
+# Query Road Network Information + Plot it 
+# ---------------------------------------------------------------------------
+
+def get_road_network(
+        bbox: tuple[float]
+    ) -> nx.MultiDiGraph:
     """Extracts all of the road networks and intersections from OSMNX within the provided bounding box
 
     This function utilizes the ``osmnx.graph_from_bbox()`` feature to extract all of the different
@@ -127,9 +133,11 @@ def get_road_network(bbox):
 
 
 def plot_network_graph(
-    network, 
-    base_gdf,
+    network: nx.MultiDiGraph, 
+    base_gdf: gpd.GeoDataFrame,
 ):
+    """
+    """
     edge_lines = []
     for u, v, data in network.edges(data=True):
         if 'geometry' in data:
