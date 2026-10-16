@@ -13,7 +13,7 @@ ox.settings.use_cache = False          # don't write/read the local cache
 ox.settings.overpass_rate_limit = True # osmnx checks the server's slot status and waits if busy
 # ox.settings.max_query_area_size = 1000 * 1000 * 1000  # osmnx can automatically split queries if the query area is too large
 ox.settings.http_user_agent = "ghe-screen/1.0 (contact: jbarrows@nrel.gov)"
-ox.settings.http_referer = "my-project"
+ox.settings.http_referer = "ghe-screen"
 
 # ox.settings.overpass_url = "https://overpass-api.de/api"  # default; change to use another instance
 
@@ -161,4 +161,5 @@ def plot_network_graph(
 
     # Add layer control and display
     folium.LayerControl().add_to(m)
-    m
+
+    return m

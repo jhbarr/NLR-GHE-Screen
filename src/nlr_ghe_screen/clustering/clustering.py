@@ -271,7 +271,7 @@ def find_nearby_buildings(
         distance=max_distance
     )
 
-    labels = seed_cluster_centroids['seed_cluster'].to_numpy()
+    labels = seed_cluster_centroids['cluster'].to_numpy()
 
     matches = building_data.iloc[building_idx].copy()
     matches['cluster'] = labels[center_idx]
@@ -285,28 +285,55 @@ def find_nearby_buildings(
 # ---------------------------------------------------------------------------
 
 def grow_cluster(
-    cluster_id: int,
     seed_centroids: gpd.GeoDataFrame,
-    ghe_locations: gpd.GeoDataFrame,
-    building_data: gpd.GeoDataFrame
+    building_data: gpd.GeoDataFrame,
+    max_distance: int = 250
 ):
     """Construct a cluster based sequentially
 
-    The cluster is constructed sequentially based on multiple factors including how close a building is to the 
-    ghe locations and how complementary its thermal load profile is to those locations. 
+    The cluster is constructed based on multiple factors including how close a building is to the 
+    seed cluster centroids and how complementary its thermal load profile is to those locations. 
 
     Args:
-        cluster_id (int): The cluster assignment label for the current working cluster
         seed_centroids (geopandas.GeoDataframe): A dataframe containing each of the centroids for the seed clusters
-        ghe_locations (geopandas.GeoDataframe): A dataframe containing ghe locations and their cluster assignments
         building_data (geopandas.GeoDataframe): A dataframe containing building information and their preliminary
             cluster assignments
-    
+        max_distance (int): How far (in meters) a building can be located from a seed cluster centroid 
+                    to be considered 
+            
     Returns:
 
     """
-    centroid = seed_centroids[seed_centroids['cluster'] == cluster_id]
-    
+    # Isolate the building types with the most theoretically the most promising 
+    # thermal load profiles
+    occ_cls_buildings = [
+        'Industrial'
+    ]
+
+    prim_occ_buildings = [
+        'Multi - Family Dwelling',
+        'Institutional Dormitory',
+        'apartments',
+        'Medical Office/Clinic',
+    ]
+    mask = (
+        building_data['OCC_CLS'].isin(occ_cls_buildings)
+        | building_data['PRIM_OCC'].isin(prim_occ_buildings)
+    )
+    viable_buildings = building_data[mask].copy()
+
+
+    # Find all nearby buildings for all cluster centroids
+    nearby_buildings = find_nearby_buildings(
+        seed_cluster_centroids=seed_centroids,
+        building_data=viable_buildings,
+        max_distance=max_distance
+    )
+
+
+    return nearby_buildings
+
+
 
 
 
