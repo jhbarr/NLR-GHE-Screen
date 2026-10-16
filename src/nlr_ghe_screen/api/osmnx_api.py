@@ -125,6 +125,7 @@ def get_road_network(
 
     # Convert the graph to undirected
     graph = graph.to_undirected()
+    graph = ox.project_graph(graph)
 
     print("Success - Query Received")
     print("---------------------------")

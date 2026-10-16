@@ -7,4 +7,6 @@ GHE installation sites for those clusters
     :maxdepth: 1
     :caption: Geospatial Clustering
 
-    clustering
+    construct_clusters
+    distance_matrices
+    seed_clustering
