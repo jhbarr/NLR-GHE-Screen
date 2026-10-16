@@ -203,7 +203,7 @@ def get_ms_building_data(bbox):
 # MS Footprint Use Functions
 # ---------------------------------------------------------------------------
 
-def footprints_for_points(gdf, bbox):
+def footprints_for_points(gdf, building_footprints, bbox):
     """Assigns MS building footprints to corresponding Point geometries in a GeoDataframe
 
     Point geometries in a GeoDataframe are a set of coordinates. This function takes those coordinates and checks
@@ -212,25 +212,26 @@ def footprints_for_points(gdf, bbox):
 
     Args:
         gdf (geopandas.GeoDataframe): A GeoDataframe containing OSM space information
+        building_footprints (geopandas.GeoDataframe): A dataframe containing building footprints 
         bbox (Tuple[float]): A coordinate bounding box in the form (lat_min, lon_min, lat_max, lon_max)
 
     Returns:
         geopandas.GeoDataframe: A new dataframe with Point geometries converted to corresponding Polygon geometries
     """
     print("\n---------------------------")
-    print("Gathering MS Footprint data")
+    print("Spatially joining building data")
 
-    ms_buildings = get_ms_building_data(bbox=bbox)
+    # ms_buildings = get_ms_building_data(bbox=bbox)
 
-    gdf = gdf.to_crs(ms_buildings.crs)
+    gdf = gdf.to_crs(building_footprints.crs)
 
     # Join each point to the footprint it falls in
-    fp = ms_buildings[['geometry']] # Returns a dataframe with the geometry
+    fp = building_footprints[['geometry']] # Returns a dataframe with the geometry
     joined = gpd.sjoin(gdf, fp, how='left', predicate='within') # Use left keys and retain left geometries. 
 
     # Swap the point geometry for the footprtint geometry
     matched = joined[joined['index_right'].notna()].copy()
-    matched['geometry'] = ms_buildings.geometry.loc[matched['index_right'].astype(int)].values # Get the geometry values associated with the geometries in the sjoin
+    matched['geometry'] = building_footprints.geometry.loc[matched['index_right'].astype(int)].values # Get the geometry values associated with the geometries in the sjoin
     matched = matched.drop(columns='index_right').set_geometry('geometry')
 
     # Ensure that there is only one polygon for each OSM row
@@ -242,7 +243,7 @@ def footprints_for_points(gdf, bbox):
     new_geom.loc[matched.index] = matched.geometry
     result = gdf.set_geometry(new_geom)
 
-    print("All data extracted")
+    print("Spatial join completed")
     print("---------------------------")
 
     return result

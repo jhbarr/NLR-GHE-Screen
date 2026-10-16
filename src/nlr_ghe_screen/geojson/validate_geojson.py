@@ -28,7 +28,7 @@ def validate_geojson(data):
     print("Validating GeoJSON")
 
     # Open the URBANopt GeoJSON schema
-    file_path = Path(__file__).parent.parent / "data" / "urbanopt_schema.json"
+    file_path = Path(__file__).parent / "data" / "urbanopt_schema.json"
     with open(file_path, "r", encoding="utf-8") as file:
         geojson_schema = json.load(file)
 

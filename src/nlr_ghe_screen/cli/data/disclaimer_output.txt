@@ -1,0 +1,19 @@
+General Disclaimer
+
+All of the information exported from this program was compiled using publically avaialable data sources. 
+The data from these sources are subject to error. Therefore, utilize the output of this program with the knowledge
+that much of the geospatial and descriptive information contained in the output should be verified. 
+
+Things to be aware of:
+- OpenStreetMap tags can be improperly attributed to certain areas or buildings.
+- Telecom data center vs building data center OSM tags. These are two different ways that a building can be tagged as a data center
+    However, the building data center means that the entire premises is utilized as a data center, while the telecom data ceter means
+    that a portion of the building is utilized as a data center. Therefore, these differences would need to be verified somehow. 
+- 
+
+Methods to verify / cross validate results:
+- The functionality contained in the processing/space_cross_validation.py file can be used to cross validate greenspaces
+    and water bodies and also enrich water body data with depth and volume information using the ESA WorldCover and
+    HydroLAKES databases respectively. Additionally, there are examples of how to use these cross validation functions
+    in the visuals/cross_validation_visuals.ipynb Python Notebook
+

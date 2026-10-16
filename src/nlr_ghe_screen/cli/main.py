@@ -9,8 +9,9 @@ from pyogrio.errors import DataSourceError
 from nlr_ghe_screen.cli.parse_args import parse_arguments
 
 from nlr_ghe_screen.api.otp_api import get_opentop, OpentopError
-from nlr_ghe_screen.api.osmnx_api import get_osmnx, OXError
+# from nlr_ghe_screen.api.osmnx_api import get_osmnx, OXError
 from nlr_ghe_screen.api.osm_api import get_overpass_with_splitting, OverpassError
+from nlr_ghe_screen.api.building_footprint_api import get_overture_footprints
 
 from nlr_ghe_screen.geojson.parse_geojson import parse_api_response
 from nlr_ghe_screen.geojson.validate_geojson import validate_geojson
@@ -42,10 +43,9 @@ def aggregate_metadata(df):
     Returns:
         dict: Dictionary containing all descriptive metadata
     """
-    categories = ['waste_heat', 'water', 'parking', 'green_space']
+    categories = ['waste_heat', 'water', 'parking', 'green_space', 'other']
 
     # Add the categories to the rows to which they apply
-    df = df.copy()
     df['_category'] = classify_geometries(df)
     crs = df.estimate_utm_crs()
 
@@ -53,7 +53,7 @@ def aggregate_metadata(df):
 
     for category in categories:
         # Get all of the row entries that were assigned this category 
-        subset = df[df['_category'] == category].drop(columns='_category')
+        subset = df[df['_category'] == category].copy()
         if subset.empty:
             continue
 
@@ -100,8 +100,9 @@ def export_results(df, response):
         json.dump(query_metadata, file, indent=4)
 
     # Export the general disclaimer text file
-    file_path = export_dir / 'general_disclaimer.txt'
-    with open('disclaimer_output.txt', 'r') as origin, open(file_path, 'w', encoding='utf-8') as file:
+    import_file_path = Path(__file__).parent / 'data' / 'disclaimer_output.txt'
+    export_file_path = export_dir / 'general_disclaimer.txt'
+    with open(import_file_path, 'r') as origin, open(export_file_path, 'w', encoding='utf-8') as file:
         for line in origin:
             file.write(line)
 
@@ -126,9 +127,12 @@ def run(args):
 
     validate_geojson(data=gdf)
 
-    gdf = footprints_for_points(gdf=gdf, bbox=bbox)
+    building_footprints = get_overture_footprints(bbox=bbox)
 
-    gdf['category'] = classify_geometries(gdf=gdf) # ** Optional Step **
+    gdf = footprints_for_points(gdf=gdf, building_footprints= building_footprints, bbox=bbox)
+
+    # gdf['category'] = classify_geometries(gdf=gdf)
+    gdf = combine_geometries(df=gdf)
 
     get_opentop(bbox=bbox, api_key=os.getenv("API_KEY"))
 
@@ -159,7 +163,7 @@ def main(args):
         DataSourceError,
         OverpassError,
         OpentopError,
-        OXError
+        # OXError
     ) as exc:
          print(f"Error - {exc}")
 

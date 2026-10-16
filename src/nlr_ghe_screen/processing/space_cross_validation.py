@@ -195,7 +195,7 @@ def join_water_body_depth(
         geopandas.GeoDataframe: A dataframe containing the water bodies that were successfully spatially joined with 
             the HydroLAKES information. 
     """
-    DATA_DIR = Path(__file__).parent.parent / 'Data'
+    DATA_DIR = Path(__file__).parent / 'data'
     lake_info = gpd.read_parquet(DATA_DIR / 'global_lake_info.parquet')
 
     water_bodies = gdf[gdf['water'].notna()]
