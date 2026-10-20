@@ -7,4 +7,5 @@ The scripts responsible for sending queries to the necessary databases.
 
     osm_api
     otp_api
+    osmnx_api
     building_footprint_api

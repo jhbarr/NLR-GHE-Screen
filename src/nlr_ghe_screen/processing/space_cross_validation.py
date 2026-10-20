@@ -176,7 +176,7 @@ def cross_validate_land(clips, land_codes):
 
 
 # ---------------------------------------------------------------------------
-# Retrieve and join water body data
+# Retrieve and join water body data - via HydoLAKES
 # ---------------------------------------------------------------------------
 
 def join_water_body_depth(

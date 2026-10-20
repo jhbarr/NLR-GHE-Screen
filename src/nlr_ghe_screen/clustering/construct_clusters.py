@@ -102,42 +102,47 @@ def find_nearby_buildings_network(
         return {k: v.to_numpy() for k, v in
                 pd.DataFrame({"node": nodes, "i": np.arange(len(nodes))}).groupby("node")["i"]}
 
-    c_nodes, c_snap = snap_to_nodes(building_data_projected)
-    b_nodes, b_snap = snap_to_nodes(centroids_projected)
+    c_nodes, c_snap = snap_to_nodes(centroids_projected)
+    b_nodes, b_snap = snap_to_nodes(building_data_projected)
     c_groups = group_by_node(c_nodes)    # node -> centroid positions
     b_groups = group_by_node(b_nodes)    # node -> building positions
 
-    ci_all, bi_all, d_all = [], [], []
-    for src, centroid_idx in c_groups.items():
+    # --- Find the distance between each centroid and every other node ---
+    centroids, buildings, distances = [], [], []
+    for centroid_node, centroid_indices in c_groups.items():
+        # Get all nodes that are reachable from the current centroid
         reachable = nx.single_source_dijkstra_path_length(
             G,
-            src,
+            centroid_node,
             cutoff=max_distance,
             weight='length'
         )
 
-        for target, distance in reachable.items():
-            building_idx = b_groups.get(target)
-            if building_idx is None:
+        for building_node, distance in reachable.items():
+            building_indices = b_groups.get(building_node)
+            if building_indices is None:
                 continue
 
-            ii = np.repeat(centroid_idx, len(building_idx))     # every centroid x building pair
-            jj = np.tile(building_idx, len(centroid_idx))       # at these two nodes
-            dd = distance + c_snap[ii] + b_snap[jj]
-            keep = dd <= max_distance
-            ci_all.append(ii[keep]); bi_all.append(jj[keep]); d_all.append(dd[keep])
+            pair_centroids = np.repeat(centroid_indices, len(building_indices))
+            pair_buildings = np.tile(building_indices, len(centroid_indices))
+            pair_distances = distance + c_snap[pair_centroids] + b_snap[pair_buildings]
 
-    ci, bi, distance = map(np.concatenate, (ci_all, bi_all, d_all))
+            # A mask array of bool values based on if the distance between nodes was less than max_distance
+            keep = pair_distances <= max_distance
+            centroids.append(pair_centroids[keep]); buildings.append(pair_buildings[keep]); distances.append(pair_distances[keep])
 
+    # Concatenate each of the arrays together
+    centroids, buildings, distances = map(np.concatenate, (centroids, buildings, distances))  
+
+    # Establish the pairs of buildings and centroids
     pairs = pd.DataFrame({
-        "building_idx": bi,
-        "cluster": seed_cluster_centroids['cluster'].to_numpy()[ci], # pulls out cluster column as a plain array
-        # "centroid": seed_cluster_centroids.index.to_numpy()[ci], # pulls out indices for each centroid
-        # "network_dist": distance,
-    })
+        'centroid_idx': centroids,
+        'building_idx': buildings,
+        'cluster': seed_cluster_centroids['cluster'].to_numpy()[centroids]
+    })        
 
     pairs = pairs.sort_values(['building_idx'])
-
+    
     result = building_data.iloc[pairs['building_idx'].to_numpy()].copy()
     result['cluster'] = pairs['cluster'].to_numpy()
 
@@ -151,7 +156,8 @@ def find_nearby_buildings_network(
 def build_clusters(
     seed_centroids: gpd.GeoDataFrame,
     building_data: gpd.GeoDataFrame,
-    max_distance: int = 250
+    G: nx.MultiDiGraph = None,
+    max_distance: int = 500
 ) -> gpd.GeoDataFrame:
     """Construct a cluster based sequentially
 
@@ -164,6 +170,8 @@ def build_clusters(
         seed_centroids (geopandas.GeoDataframe): A dataframe containing each of the centroids for the seed clusters
         building_data (geopandas.GeoDataframe): A dataframe containing building information and their preliminary
             cluster assignments
+        G (networkx.MultiDiGraph): An undirected networkx graph that describes the road network connecting the buildings 
+            and centroids
         max_distance (int): How far (in meters) a building can be located from a seed cluster centroid 
                     to be considered 
             
@@ -190,10 +198,19 @@ def build_clusters(
 
 
     # Find all nearby buildings for all cluster centroids
-    nearby_buildings = find_nearby_buildings_euclidian(
-        seed_cluster_centroids=seed_centroids,
-        building_data=viable_buildings,
-        max_distance=max_distance
-    )
+    if G is not None:
+        nearby_buildings = find_nearby_buildings_network(
+            seed_cluster_centroids=seed_centroids,
+            building_data=viable_buildings,
+            G=G,
+            max_distance=max_distance
+        )
+
+    else:
+        nearby_buildings = find_nearby_buildings_euclidian(
+            seed_cluster_centroids=seed_centroids,
+            building_data=viable_buildings,
+            max_distance=max_distance
+        )
 
     return nearby_buildings
