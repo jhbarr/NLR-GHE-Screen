@@ -88,7 +88,7 @@ def get_osmnx(bbox):
 
 
 # ---------------------------------------------------------------------------
-# Query Road Network Information + Plot it 
+# Query Road Network Information 
 # ---------------------------------------------------------------------------
 
 def get_road_network(
@@ -105,7 +105,7 @@ def get_road_network(
             i.e. (south, west, north, east) - same convention as the old code.
     
     Returns:
-        networkx.MultiDiGraph: A networkx graph of the roads and intersections
+        networkx.MultiDiGraph: An undirected networkx graph of the roads and intersections
 
     Raises:
         OXError: In case of any error while retrieving the road network
@@ -124,8 +124,8 @@ def get_road_network(
         raise OXError(f"OSMnx exited with error: {e}")
 
     # Convert the graph to undirected
-    graph = graph.to_undirected()
     graph = ox.project_graph(graph)
+    graph = graph.to_undirected()
 
     print("Success - Query Received")
     print("---------------------------")
@@ -133,9 +133,14 @@ def get_road_network(
     return graph
 
 
+
+# ---------------------------------------------------------------------------
+# Plot Road Network Information 
+# ---------------------------------------------------------------------------
+
 def plot_network_graph(
     network: nx.MultiDiGraph, 
-    base_gdf: gpd.GeoDataFrame,
+    extra_layers: list
 ):
     """
     """
@@ -150,7 +155,7 @@ def plot_network_graph(
             geom = LineString([(x1, y1), (x2, y2)])
         edge_lines.append({'u': u, 'v': v, 'geometry': geom})
 
-    gdf_edges = gpd.GeoDataFrame(edge_lines, crs='EPSG:4326')
+    gdf_edges = gpd.GeoDataFrame(edge_lines, crs=network.graph['crs'])
 
     # Convert NetworkX nodes to a GeoDataFrame of Points
     node_points = []
@@ -159,16 +164,23 @@ def plot_network_graph(
             {'node': n, 'geometry': Point(data['x'], data['y']), **data}
         )
 
-    gdf_nodes = gpd.GeoDataFrame(node_points, crs='EPSG:4326')
+    gdf_nodes = gpd.GeoDataFrame(node_points, crs=network.graph['crs'])
 
     # 3. Create the base interactive map using GeoPandas .explore()
-    m = base_gdf.explore(color='green', name='Base Map')
+    # m = base_gdf.explore(color='green', name='Base Map')
 
-    # 4. Overlay the NetworkX edges and nodes onto the Folium map
-    gdf_edges.explore(m=m, color='blue', weight=2, name='Network Edges')
-    gdf_nodes.explore(m=m, color='red', marker_kwds={'radius': 4}, name='Network Nodes')
+    m = gdf_edges.explore(color='blue', weight=2, name='Network Edges')
+    m = gdf_nodes.explore(m=m, color='red', marker_kwds={'radius': 4}, name='Network Nodes')
 
-    # Add layer control and display
+    for name, gdf, color in (extra_layers or []):
+        m = gdf.explore(m=m, color=color, name=name)
+
+    # Fit to everything combined, since each explore() call re-fits to its own data
+    all_bounds = [gdf_edges.to_crs(4326).total_bounds]
+    all_bounds += [g.to_crs(4326).total_bounds for _, g, _ in (extra_layers or [])]
+    minx = min(b[0] for b in all_bounds); miny = min(b[1] for b in all_bounds)
+    maxx = max(b[2] for b in all_bounds); maxy = max(b[3] for b in all_bounds)
+    m.fit_bounds([[miny, minx], [maxy, maxx]])
+
     folium.LayerControl().add_to(m)
-
     return m

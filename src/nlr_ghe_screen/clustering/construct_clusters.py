@@ -214,3 +214,99 @@ def build_clusters(
         )
 
     return nearby_buildings
+
+
+
+# ---------------------------------------------------------------------------
+# Calculate cluster total pipe length
+# ---------------------------------------------------------------------------
+
+def create_cluster_subgraph(
+        cluster_id: int,
+        building_data: gpd.GeoDataFrame,
+        ghe_locations: gpd.GeoDataFrame,
+        G: nx.MultiDiGraph,
+) -> nx.MultiDiGraph:
+    """Creates a complete subgraph of a cluster comprised of buildings and GHE / waste heat source locations
+    
+    This function is used to create an approximation of an MST for a cluster using road network data. In this way,
+    it can be used to calculate the minimum length of pipe necessary to connect all of the components of a proposed
+    TEN cluster. This function utilizes prims algorithm to find a greedy approximation of the MST.
+
+    Args:
+        cluster_id (int): The cluster label for the cluster whose subgraph should be created
+        building_data (geopandas.GeoDataframe): A dataframe containing building information and their preliminary
+            cluster assignments
+        ghe_locations (geopandas.GeoDataframe): A GeoDataframe of GHE locations pre-labeled with cluster assignments
+        G (networkx.MultiDiGraph): An undirected networkx graph that describes the road network connecting elements of a cluster
+    
+    Returns:
+        nx.MultiDiGraph: The complete subgraph connecting all elements of a cluster
+    """
+    def extract_nodes(points):
+        return ox.distance.nearest_nodes(
+            G, 
+            X=points.x.values, 
+            Y=points.y.values, 
+            return_dist=False
+        )
+
+    # Get the buildings and GHE / waste heat source locations from the cluster
+    cluster_buildings = building_data[building_data['cluster'] == cluster_id]
+    cluster_ghes = ghe_locations[ghe_locations['cluster'] == cluster_id]
+
+    # Get all of the Networkx nodes associated with those locations
+    building_nodes = extract_nodes(cluster_buildings.geometry.representative_point())
+    ghe_nodes = extract_nodes(cluster_ghes.geometry.representative_point())
+
+    # Create a concatenated list of all those nodes
+    terminals = list(set(np.concatenate((building_nodes, ghe_nodes))))
+    if len(terminals) < 2:
+        return [], nx.MultiGraph()
+
+
+    # --- Prim's algorithm over shortest-path distances ---
+    # Create two dictionaries to keep track of the distances to each node
+    # and the parent of each node
+    key = dict.fromkeys(terminals, float('inf'))
+    parent = dict.fromkeys(terminals, None)
+    key[terminals[0]] = 0
+
+    mst_edges = []  # (u, v, road_distance)
+    while key:
+        # Get the node with the smallest distance 
+        # Remove that node from the set of unvisited nods
+        cur = min(key, key=key.get)
+        dist_to_cur = key.pop(cur)
+        
+        if dist_to_cur == float('inf'):
+            raise nx.NetworkXNoPath(f"Cluster {cluster_id} has disconnected nodes")
+
+        # Add the edge from the current nodes parent to the current node
+        # include the distance of that edge
+        if parent[cur] is not None:
+            mst_edges.append((parent[cur], cur, dist_to_cur))
+
+        # Get the length of the paths connecting the current node to all remaining
+        # unconnected nodes 
+        lengths = nx.single_source_dijkstra_path_length(G, cur, weight='length')
+
+        # Retrieve the remaining unconnected nodes 
+        for neighbor in key:
+            distance = lengths.get(neighbor, float('inf'))
+            if distance < key[neighbor]:
+                key[neighbor] = distance
+                parent[neighbor] = cur
+
+    # Build the actual road-network subgraph from the MST edges
+    sub_edges = set()
+    for u, v, _ in mst_edges:
+        path = nx.shortest_path(G, u, v, weight='length')
+        for a, b in zip(path[:-1], path[1:]):
+            k = min(G[a][b], key=lambda k: G[a][b][k].get('length', 0))
+            sub_edges.add((a, b, k))
+
+    mst_graph = G.edge_subgraph(sub_edges).copy()
+    total_length = mst_graph.size(weight='length')
+
+    return mst_graph, total_length
