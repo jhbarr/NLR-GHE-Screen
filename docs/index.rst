@@ -27,7 +27,7 @@ Introduction to the program here
    :maxdepth: 2
    :caption: APIs
 
-   features/ghe_features/api/index
+   features/api/index
 
 .. toctree::
    :maxdepth: 2
