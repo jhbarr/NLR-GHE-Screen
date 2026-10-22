@@ -4,7 +4,7 @@ import math
 from pathlib import Path
  
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
-DIR = Path(__file__).parent
+DATA_DIR = Path(__file__).parent / 'data'
 
 DEFAULT_QUERY_TIMEOUT = 60
 HTTP_TIMEOUT_BUFFER = 5
@@ -168,7 +168,7 @@ def build_overpass_query(bbox, query_timeout = DEFAULT_QUERY_TIMEOUT):
     bbox_str = f"{south},{west},{north},{east}"
 
     # Open the file containing the Ovperass QL Query
-    with open(DIR / 'overpassql_query.txt') as file:
+    with open(DATA_DIR / 'overpassql_query.txt') as file:
         query_content = file.read()
     filters = query_content.format(bbox_str=bbox_str)
 

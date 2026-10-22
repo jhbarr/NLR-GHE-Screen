@@ -8,6 +8,7 @@ data through to other scripts.
 Return Data
 -----------
 OSMNX returns a Geopandas GeoDataframe with all of the tag attributes of each geometry and the coordinates that make up the shape of that geometry.
+When using the API to query for road netowrk information, the API will return a NetworkX graph.
 
 Functions
 ---------
