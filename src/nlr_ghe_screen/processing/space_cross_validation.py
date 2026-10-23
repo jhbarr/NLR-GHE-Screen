@@ -16,6 +16,7 @@ OUTPUT_TIF = "../src/imports/worldcover_clip.tif"
 BASE_URL = f"https://esa-worldcover.s3.amazonaws.com/{VERSION}/{YEAR}/map"
 
 
+
 # ---------------------------------------------------------------------------
 # Retrieve + Merge WorldCover Tiles
 # ---------------------------------------------------------------------------
