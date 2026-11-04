@@ -6,7 +6,11 @@
 .python-version
 .DS_Store
 
+# Packages
+building-energy-profiles/
+
 # Miscellaneous files
 **/__pycache__/
 **/imports/
-**/test.ipynb
+**/datasets/
+**/metadata/

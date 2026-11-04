@@ -131,3 +131,78 @@ def construct_road_network_dist_matrix(
 
     rows, cols, vals = map(np.concatenate, (rows, cols, vals))
     return coo_matrix((vals, (rows, cols)), shape=(n, n)).tocsr()
+
+
+
+# ---------------------------------------------------------------------------
+# Building to Centroid distance calculations
+# ---------------------------------------------------------------------------
+
+def road_network_distance_to_centroid(
+        buildings_df: gpd.GeoDataFrame,
+        centroid,
+        G: nx.MultiDiGraph,
+        max_distance: int = 500,
+        weight: str = 'length'
+):
+    """Aggregates the network distance from each given buildings to the provided centroid
+
+    This function is used to gather the distances from possible cluster member buildings to 
+    the seed centroid of a cluster. 
+
+    Args:
+        buildings_df (geopandas.GeoDataframe): A dataframe of buildings within a possible network cluster
+        centroid (shapely.Point): The seed centroid of a cluster
+        G (nx.MultiDiGraph): The road network graph 
+        max_distance (int): The maximum distance away buildings can be located
+
+    Returns:
+        pandas.Series: A series containing the distances from each building to the centroid
+    """
+    # Snap the centroid to the nearest graph node
+    centroid_node = ox.distance.nearest_nodes(G, X=centroid.x, Y=centroid.y)
+
+    # Snap each building to its nearest graph node
+    pts = buildings_df.geometry.centroid
+    building_nodes = ox.distance.nearest_nodes(G, X=pts.x.values, Y=pts.y.values)
+
+    node_distances = nx.single_source_dijkstra_path_length(
+        G,
+        centroid_node,
+        cutoff=max_distance,
+        weight=weight
+    )
+
+    # Look up each building's node distance
+    return pd.Series(
+        [node_distances.get(n) for n in building_nodes],
+        index=buildings_df.index,
+        name='centroid_distance'
+    )
+
+
+def euclidian_distance_to_centroid(
+        buildings_df: gpd.GeoDataFrame,
+        centroid: shapely.Point,
+        max_distance: int = 500
+):
+    """Aggregates the straight line distance from each given buildings to the provided centroid
+
+    This function is used to gather the distances from possible cluster member buildings to 
+    the seed centroid of a cluster. 
+
+    Args:
+        buildings_df (geopandas.GeoDataframe): A dataframe of buildings within a possible network cluster
+        centroid (shapely.Point): The seed centroid of a cluster
+        max_distance (int): The maximum distance away buildings can be located
+
+    Returns:
+        pandas.Series: A series containing the distances from each building to the centroid
+    """
+    # Distance from the centroid to each buildings' geometry
+    distance = buildings_df.geometry.distance(centroid)
+
+    if max_distance is not None:
+        distance = distance.where(distance <= max_distance)
+
+    return distance.rename("centroid_distance")

@@ -5,6 +5,9 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
+    "building-energy-profiles",
+    "cplex>=22.2.0.0",
+    "docplex>=2.32.264",
     "folium>=0.12",
     "geopandas>=1.0.1",
     "ipykernel>=6.31.0",
@@ -36,3 +39,11 @@ build-backend = "uv_build"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.uv.workspace]
+members = [
+    "building-energy-profiles",
+]
+
+[tool.uv.sources]
+building-energy-profiles = { workspace = true, editable = true }

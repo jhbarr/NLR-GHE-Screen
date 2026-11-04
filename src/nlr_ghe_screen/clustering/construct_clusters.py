@@ -5,8 +5,6 @@ import shapely
 import osmnx as ox
 import networkx as nx
 
-
-
 # ---------------------------------------------------------------------------
 # Gather and Rank Nearby Buildings
 # ---------------------------------------------------------------------------
@@ -153,6 +151,21 @@ def find_nearby_buildings_network(
 # Grow Cluster From Seed
 # ---------------------------------------------------------------------------
 
+OCC_CLS_RENAME = {
+    'Industrial': 'Warehouse' # Warehouse
+}
+
+PRIM_OCC_RENAME = {
+    'Institutional Dormitory': 'SmallHotel',
+    'Medical Office/Clinic': 'Outpatient',
+    'Temporary Lodging': 'Hotel',
+    'Multi - Family Dwelling': "Multi-Family with 5+ Units",
+    'apartments': "Multi-Family with 5+ Units"
+}
+
+def _norm(s: pd.Series) -> pd.Series:
+    return s.astype(str).str.strip()
+
 def build_clusters(
     seed_centroids: gpd.GeoDataFrame,
     building_data: gpd.GeoDataFrame,
@@ -178,24 +191,24 @@ def build_clusters(
     Returns:
         geopandas.GeoDataframe: A dataframe of all cluster buildings with cluster assignment labels
     """
-    # Isolate the building types with the most theoretically the most promising 
-    # thermal load profiles
-    occ_cls_buildings = [
-        'Industrial'
-    ]
+    # Normalize once so the mask and the mapping use identical keys
+    prim = _norm(building_data["PRIM_OCC"]).map(PRIM_OCC_RENAME)
+    occ = _norm(building_data["OCC_CLS"]).map(OCC_CLS_RENAME)
 
-    prim_occ_buildings = [
-        'Multi - Family Dwelling',
-        'Institutional Dormitory',
-        'apartments',
-        'Medical Office/Clinic',
-    ]
+    # Keep buildings whose type appears in either mapping (even if mapped to None)
     mask = (
-        building_data['OCC_CLS'].isin(occ_cls_buildings)
-        | building_data['PRIM_OCC'].isin(prim_occ_buildings)
+        _norm(building_data["PRIM_OCC"]).isin(PRIM_OCC_RENAME.keys())
+        | _norm(building_data["OCC_CLS"]).isin(OCC_CLS_RENAME.keys())
     )
+
     viable_buildings = building_data[mask].copy()
 
+    # comstock type: PRIM_OCC is more specific, so it takes priority over OCC_CLS
+    viable_buildings["comstock_type"] = prim[mask].where(prim[mask].notna(), occ[mask])
+
+    # Convert floor area from square meters to square feet
+    SQM_TO_SQFT = 10.7639  # 1 m² = 10.7639 ft²
+    viable_buildings["sqfeet"] = (viable_buildings['SQMETERS'] * SQM_TO_SQFT).round(-1).astype("Int64")
 
     # Find all nearby buildings for all cluster centroids
     if G is not None:
@@ -203,18 +216,28 @@ def build_clusters(
             seed_cluster_centroids=seed_centroids,
             building_data=viable_buildings,
             G=G,
-            max_distance=max_distance
+            max_distance=max_distance,
         )
-
     else:
         nearby_buildings = find_nearby_buildings_euclidian(
             seed_cluster_centroids=seed_centroids,
             building_data=viable_buildings,
-            max_distance=max_distance
+            max_distance=max_distance,
         )
 
-    return nearby_buildings
+    # Fallback: if the search functions dropped our columns, re-attach by index
+    missing = [c for c in ("comstock_type", "sqfeet") if c not in nearby_buildings.columns]
+    if missing:
+        nearby_buildings = nearby_buildings.join(viable_buildings[missing], how="left")
 
+    # Keep only the first instance of each building within a cluster
+    dupes = nearby_buildings.assign(_bldg_id=nearby_buildings.index).duplicated(
+        subset=['cluster', "_bldg_id"],
+        keep="first",
+    )
+    nearby_buildings = nearby_buildings[~dupes]
+
+    return nearby_buildings
 
 
 # ---------------------------------------------------------------------------
@@ -222,38 +245,32 @@ def build_clusters(
 # ---------------------------------------------------------------------------
 
 def create_cluster_subgraph(
-        cluster_id: int,
-        building_data: gpd.GeoDataFrame,
-        ghe_locations: gpd.GeoDataFrame,
+        cluster_buildings: gpd.GeoDataFrame,
+        cluster_ghes: gpd.GeoDataFrame,
         G: nx.MultiDiGraph,
-) -> nx.MultiDiGraph:
-    """Creates a complete subgraph of a cluster comprised of buildings and GHE / waste heat source locations
-    
+) -> tuple[nx.MultiDiGraph, float]:
+    """Creates a subgraph of a cluster comprised of buildings and GHE / waste heat source locations
+
     This function is used to create an approximation of an MST for a cluster using road network data. In this way,
     it can be used to calculate the minimum length of pipe necessary to connect all of the components of a proposed
-    TEN cluster. This function utilizes prims algorithm to find a greedy approximation of the MST.
+    TEN cluster. This function utilizes Prim's algorithm to find a greedy approximation of the MST.
 
     Args:
-        cluster_id (int): The cluster label for the cluster whose subgraph should be created
-        building_data (geopandas.GeoDataframe): A dataframe containing building information and their preliminary
-            cluster assignments
-        ghe_locations (geopandas.GeoDataframe): A GeoDataframe of GHE locations pre-labeled with cluster assignments
-        G (networkx.MultiDiGraph): An undirected networkx graph that describes the road network connecting elements of a cluster
-    
+        cluster_buildings (geopandas.GeoDataFrame): Buildings belonging to a single cluster
+        cluster_ghes (geopandas.GeoDataFrame): GHE / waste heat source locations belonging to the same cluster
+        G (networkx.MultiDiGraph): The road network connecting elements of a cluster
+
     Returns:
-        nx.MultiDiGraph: The complete subgraph connecting all elements of a cluster
+        tuple[nx.MultiDiGraph, float]: The subgraph connecting all elements of the cluster
+            and its total length
     """
     def extract_nodes(points):
         return ox.distance.nearest_nodes(
-            G, 
-            X=points.x.values, 
-            Y=points.y.values, 
+            G,
+            X=points.x.values,
+            Y=points.y.values,
             return_dist=False
         )
-
-    # Get the buildings and GHE / waste heat source locations from the cluster
-    cluster_buildings = building_data[building_data['cluster'] == cluster_id]
-    cluster_ghes = ghe_locations[ghe_locations['cluster'] == cluster_id]
 
     # Get all of the Networkx nodes associated with those locations
     building_nodes = extract_nodes(cluster_buildings.geometry.representative_point())
@@ -262,36 +279,26 @@ def create_cluster_subgraph(
     # Create a concatenated list of all those nodes
     terminals = list(set(np.concatenate((building_nodes, ghe_nodes))))
     if len(terminals) < 2:
-        return [], nx.MultiGraph()
-
+        return nx.MultiDiGraph(), 0.0
 
     # --- Prim's algorithm over shortest-path distances ---
-    # Create two dictionaries to keep track of the distances to each node
-    # and the parent of each node
     key = dict.fromkeys(terminals, float('inf'))
     parent = dict.fromkeys(terminals, None)
     key[terminals[0]] = 0
 
     mst_edges = []  # (u, v, road_distance)
     while key:
-        # Get the node with the smallest distance 
-        # Remove that node from the set of unvisited nods
         cur = min(key, key=key.get)
         dist_to_cur = key.pop(cur)
-        
-        if dist_to_cur == float('inf'):
-            raise nx.NetworkXNoPath(f"Cluster {cluster_id} has disconnected nodes")
 
-        # Add the edge from the current nodes parent to the current node
-        # include the distance of that edge
+        if dist_to_cur == float('inf'):
+            raise nx.NetworkXNoPath("Cluster has disconnected nodes")
+
         if parent[cur] is not None:
             mst_edges.append((parent[cur], cur, dist_to_cur))
 
-        # Get the length of the paths connecting the current node to all remaining
-        # unconnected nodes 
         lengths = nx.single_source_dijkstra_path_length(G, cur, weight='length')
 
-        # Retrieve the remaining unconnected nodes 
         for neighbor in key:
             distance = lengths.get(neighbor, float('inf'))
             if distance < key[neighbor]:

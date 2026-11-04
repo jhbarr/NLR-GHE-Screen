@@ -8,7 +8,7 @@ from shapely.geometry import Point
 
 
 # ---------------------------------------------------------------------------
-# Aggregate GHE / Waste heat sources as seeds for building clusters
+# Seed network clusters - Group of GHE / Waste heat source locations
 # ---------------------------------------------------------------------------
 
 def seed_clusters(
@@ -74,8 +74,6 @@ def seed_clusters(
     return labels
 
 
-
-
 def geometric_median(
         points: np.ndarray,
         tol: float = 1e6,
@@ -121,8 +119,7 @@ def geometric_median(
     return center_point
 
 
-
-def find_seed_centroids(
+def find_seed_centroids_group(
         ghe_locations: gpd.GeoDataFrame,
         cluster_col: str = 'cluster'
 ) -> gpd.GeoDataFrame:
@@ -133,7 +130,7 @@ def find_seed_centroids(
 
     *Note* - The function expects the GHE locations to be in a projected UTM CRS
 
-    Args:s
+    Args:
         ghe_locations (geopandas.GeoDataframe): A GeoDataframe of GHE locations pre-labeled with cluster assignments
     
     Returns:
@@ -153,3 +150,40 @@ def find_seed_centroids(
         rows.append({cluster_col: label, 'geometry': Point(center)})
 
     return gpd.GeoDataFrame(rows, geometry='geometry', crs=ghe_locations.crs)
+
+
+
+
+# ---------------------------------------------------------------------------
+# Seed network clusters - Individual GHE / Waste heat source locations
+# ---------------------------------------------------------------------------
+
+def find_seed_centroids_single(
+        ghe_locations: gpd.geodataframe
+):
+    """Assigns each GHE / waste heat source location a centroid position and gives them a cluster label
+
+    This funciton is used to gather point geometries that reprepsent each individual GHE / waste heat source location.
+    This way, each of those individual locations can act as the seed for a thermal network cluster. 
+
+    *Note* - The function expects the GHE locations to be in a projected UTM CRS
+
+    Args:
+        ghe_locations (geopandas.GeoDataframe): A GeoDataframe of GHE / waste heat source locations. They do not need to be 
+            pre-labeled with cluster assignments. 
+
+    Returns:
+        geopandas.GeoDataframe: Dataframe containing point objects and the label associated with their cluster
+    """
+    # Original rows get a cluster label (one per row)
+    ghe_labeled = ghe_locations.copy()
+    ghe_labeled['cluster'] = range(len(ghe_labeled))
+
+    # Centroids inherit the same label, aligned by index
+    seed_centroids = gpd.GeoDataFrame(
+        {'cluster': ghe_labeled['cluster']},
+        geometry=ghe_labeled.geometry.centroid,
+        crs=ghe_locations.crs,
+    )
+
+    return ghe_labeled, seed_centroids
