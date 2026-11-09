@@ -56,7 +56,7 @@ def solve_cluster(
     x_lb[seed_idx] = 1 # Force include the seed building in the cluster
 
     # Create the objective - to be minimized
-    obj = [weight_distance * d[i] / D_ref for i in range(n)] + [weight_peak / Z_ref, weight_net / Q_ref]
+    obj = [weight_distance * (d[i] / D_ref) for i in range(n)] + [weight_peak / Z_ref, weight_net / Q_ref]
 
 
     # --------- Problem Instantiation ---------
@@ -127,10 +127,10 @@ def solve_cluster(
         return {"status": status, "selected": None}
  
     vals = np.array(problem.solution.get_values())
-    selected = [i for i in range(n) if vals[i] == 1]
+    selected = [i for i in range(n) if vals[i] > 0.5]
  
     # recompute metrics directly from the selection (independent check)
-    N = L[selected].sum(axis=0)
+    NET = L[selected].sum(axis=0)
     return {
         "total variables": problem.variables.get_num(),
         "total constraints": problem.linear_constraints.get_num(),
@@ -138,8 +138,8 @@ def solve_cluster(
         "objective": problem.solution.get_objective_value(),
         "best_bound": problem.solution.MIP.get_best_objective(),
         "selected": selected,
-        "net_curve": N,
-        "peak": float(np.abs(N).max()),
-        "imbalance": float(abs(N.sum())),
+        "net_curve": NET,
+        "peak": float(np.abs(NET).max()),
+        "imbalance": float(abs(NET.sum())),
         "total_distance": float(d[selected].sum()),
     }
