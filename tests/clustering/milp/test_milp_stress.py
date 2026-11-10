@@ -37,7 +37,7 @@ RANDOM = [
     for s, hf in zip(range(7), [0.5, 0.5, 0.3, 0.7, 0.5, 0.5, 0.4])
 ]
 
-NUM_PROFILES = [5, 50, 500, 1000]
+NUM_PROFILES = [5, 50, 500, 999]
 
 by_name = lambda s: s.name
 
@@ -53,19 +53,13 @@ class TestMILPStress:
     """
 
     # @pytest.mark.parametrize('num', NUM_PROFILES)
+    # @pytest.mark.timeout(5)
     # def test_cluster_size_limits(self, num):
     #     # Analyze how many building load profiles can be in a cluster before it 
     #     # begins to degrade 
     #     sc = scenario_random(n=num, k_min=2 + (num % 3))
-
-    #     start_time = time.perf_counter()
     #     res = solve_scenario(sc, 0.5, 0.5, 0.0)
-    #     end_time = time.perf_counter()
 
-    #     elapsed_time = end_time - start_time
-    #     print(elapsed_time)
-
-    #     assert False
 
 
     # def test_load_profile_time_resolution_limits(self):

@@ -157,6 +157,7 @@ class TestWeightedObjective:
     """
 
 # ---- core correctness ----
+    # 1. 
     @pytest.mark.parametrize("sc", ALL_SCENARIOS, ids=by_name)
     @pytest.mark.parametrize("w_peak, w_net", WEIGHT_PAIRS)
     def test_objective_matches_brute_force(self, sc, w_peak, w_net):
@@ -172,6 +173,7 @@ class TestWeightedObjective:
         assert returned == pytest.approx(best, **OBJ_TOL)
 
 
+    # 2. 
     @pytest.mark.parametrize("sc", ALL_SCENARIOS, ids=by_name)
     def test_extreme_weights_recover_single_objective_optima(self, sc):
         # Check that when the weights are skewed one way or the other, the minimum peak / imbalance
@@ -189,6 +191,7 @@ class TestWeightedObjective:
 
 
 # ---- analytic crossover points 
+    # 3. 
     """*** Look at this test more ***"""
     def test_conflict_scenario_switches_at_the_analytic_crossover(self):
         # Check the point at which the peak / imbalance take each other over for priority 
@@ -199,11 +202,12 @@ class TestWeightedObjective:
         below = solve_scenario(CONFLICT, *weights_from_ratio(lam_star / 2), 0.0)
         above = solve_scenario(CONFLICT, *weights_from_ratio(lam_star * 2), 0.0)
     
-        # assert sorted(below["selected"]) == [0, 2]   # peak still wins
-        # assert sorted(above["selected"]) == [0, 1]   # imbalance now wins
-        assert False
+        assert sorted(below["selected"]) == [0, 2]   # peak still wins
+        assert sorted(above["selected"]) == [0, 1]   # imbalance now wins
+
 
     """*** Look at this test more ***"""
+    # 4. 
     def test_three_way_tradeoff(self):
         # Check how the MILP solutions change as the weights change 
         # Show that they cannot improve on one metric without sacrificing another 
@@ -217,19 +221,21 @@ class TestWeightedObjective:
         expected = [[0, 1], [0, 2], [0, 3]]
         for lam, exp in zip(lams, expected):
             res = solve_scenario(THREE_WAY, *weights_from_ratio(lam), 0.0)
-            # assert sorted(res["selected"]) == exp, f"lam={lam:.3f}"
-        assert False
+            assert sorted(res["selected"]) == exp, f"lam={lam:.3f}"
+
 
     """*** Look at this test more ***"""
+    # 5. 
     def test_equal_weights_in_three_way(self):
         # Analyze the clusters chosen when there are equal weights in the objective funciton
         res = solve_scenario(THREE_WAY, 0.5, 0.5, 0.0)
 
-        # assert sorted(res["selected"]) == [0, 1]
-        assert False
+        assert sorted(res["selected"]) == [0, 1]
+
 
 
 # ---- properties of trade off ----
+    # 5. 
     @pytest.mark.parametrize("sc", RANDOM + [THREE_WAY, CONFLICT], ids=by_name)
     def test_sweep_is_monotone(self, sc):
         # Analyze how the peak and imbalance shrink / grow as their weight ratio changes
@@ -245,6 +251,7 @@ class TestWeightedObjective:
             assert p_b >= p_a - SLACK, "peak fell as its weight decreased"
 
 
+    # 6.    
     @pytest.mark.parametrize("sc", RANDOM, ids=by_name)
     @pytest.mark.parametrize("w_peak, w_net", [(0.5, 0.5), (0.9, 0.1), (0.1, 0.9)])
     def test_chosen_cluster_is_not_dominated(self, sc, w_peak, w_net):
@@ -261,6 +268,7 @@ class TestWeightedObjective:
             assert not dominates, f"cluster {sel} dominates the solver's choice {res['selected']}"
 
 
+    # 7 
     @pytest.mark.parametrize("sc", RANDOM, ids=by_name)
     @pytest.mark.parametrize("factor", [0.01, 100.0])
     def test_tradeoff_is_unit_independent(self, sc, factor):

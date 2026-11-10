@@ -30,6 +30,12 @@ def solve_cluster(
     Returns:
         dict: A dictionary containing the results of the MILP solution
     """
+    # Check that the inputs are valid
+    if seed_idx > len(loads):
+        raise ValueError('seed_idx too large')
+    elif k_min > len(loads):
+        raise ValueError('k_min too large')
+
     # --------- Set up the variables to be used in the MILP ---------
     L = np.asarray(loads, dtype=float)
     d = np.asarray(distances, dtype=float)

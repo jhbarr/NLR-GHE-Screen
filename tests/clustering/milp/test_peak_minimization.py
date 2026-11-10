@@ -74,6 +74,7 @@ class TestPeakReduction:
     """
 
 # ---- core correctness ----
+    # 1. 
     @pytest.mark.parametrize('sc', ALL_SCENARIOS, ids=by_name)
     def test_peak_matches_brute_force(self, sc):
         # Check that for all scenarios, the MILP peak matches the brute force peak
@@ -83,7 +84,8 @@ class TestPeakReduction:
         assert res["selected"] is not None
         assert res["peak"] == pytest.approx(expected, **TOL)
 
-    
+
+    # 2. 
     @pytest.mark.parametrize('sc', ALL_SCENARIOS, ids=by_name)
     def test_selection_is_valid(self, sc):
         # Check that for all scenarios, all of the constraints are satisfied
@@ -95,6 +97,7 @@ class TestPeakReduction:
         assert len(set(sel)) == len(sel)
 
 # ---- known optima ----
+    # 3. 
     def test_perfect_cancellation(self):
         # Check that two pefectly opposite loads are selected out of a batch of randoms
         sc = scenario_perfect_cancellation()
@@ -104,6 +107,7 @@ class TestPeakReduction:
         assert res['peak'] == pytest.approx(0.0, abs=1e-6)
 
 
+    # 4. 
     def test_all_heating_selects_smallest(self):
         # Check that the smallest load profile is chosen amongst increasing load profiles
         sc = scenario_all_heating(n=6, seed_idx=2, k_min=3)
@@ -111,7 +115,7 @@ class TestPeakReduction:
 
         assert sorted(res['selected']) == [0, 1, 2]
 
-
+    # 5. 
     def test_staggered_spikes_avoids_coincident_building(self):
         # Check that a building that increases the peak is not selected
         sc = scenario_staggered_spikes()
@@ -121,6 +125,7 @@ class TestPeakReduction:
         assert sorted(res['selected']) == [0, 2, 3, 4]
 
 
+    # 6. 
     def test_peak_counts_cooling_as_well_as_heating(self):
         # Check that the MILP is minimizing the absolute value of the peak
         loads = np.vstack([constant_profile(5.0, 6), constant_profile(-4.0, 6), constant_profile(-30.0, 6)])
@@ -131,6 +136,7 @@ class TestPeakReduction:
 
 
 # ---- invariance / symmetry ----
+    # 7. 
     @pytest.mark.parametrize('sc', RANDOM, ids=by_name)
     def test_sign_flip_invariance(self, sc):
         # Check that flipping the sign (+ or -) does not affect the overall peak
@@ -140,6 +146,7 @@ class TestPeakReduction:
         assert res['peak'] == pytest.approx(expected, **TOL)
 
 
+    # 8. 
     @pytest.mark.parametrize('sc', RANDOM, ids=by_name)
     def test_building_order_invariance(self, sc):
         # Check that shuffling the ordering of the building loads does not affect overall peak
@@ -153,6 +160,7 @@ class TestPeakReduction:
 
 
 # ---- k_min behavior ----
+    # 9. 
     def test_optimal_peak_is_non_decreasing_in_k_min(self):
         # Check that raising k_min only shrinks the feasible set, so the best peak can never improve
         loads = random_loads(7, T=24, seed=11)
@@ -165,7 +173,7 @@ class TestPeakReduction:
         for earlier, later in zip(peaks, peaks[1:]):
             assert later >= earlier - 1e3
 
-
+    # 10. 
     def test_k_min_equals_n(self):
         # Check that if k_min equals the total number of loads, the max peak is the sum of all the loads
         loads = random_loads(6, T=24, seed=5)

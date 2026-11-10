@@ -90,6 +90,7 @@ class TestImbalanceMinimization:
     """
 
 # ---- core correctness ----
+    # 1. 
     @pytest.mark.parametrize('sc', ALL_SCENARIOS, ids=by_name)
     def test_peak_matches_brute_force(self, sc):
         # Check that for all scenarios, the MILP peak matches the brute force peak
@@ -100,6 +101,7 @@ class TestImbalanceMinimization:
         assert res["imbalance"] == approx_imbalance(expected, sc.loads)
 
 
+    # 2. 
     @pytest.mark.parametrize("sc", KNOWN, ids=by_name)
     def test_imbalance_matches_analytic_answer(self, sc):
         # Check that the imbalances match the known imbalances for the given scenarios
@@ -107,6 +109,7 @@ class TestImbalanceMinimization:
         assert res["imbalance"] == approx_imbalance(sc.expected_imbalance, sc.loads)
 
 
+    # 3. 
     @pytest.mark.parametrize('sc', ALL_SCENARIOS, ids=by_name)
     def test_selection_is_valid(self, sc):
         # Check that for all scenarios, all of the constraints are satisfied
@@ -119,6 +122,7 @@ class TestImbalanceMinimization:
 
 
 # ---- known optima ----
+    # 4. 
     def test_subset_sum_picks_best_combination(self):
         T = 4
         sc = scenario_subset_sum(T=T)
@@ -127,7 +131,7 @@ class TestImbalanceMinimization:
         assert sorted(res['selected']) == [0, 2, 3]
         assert res['imbalance'] == approx_imbalance(1.0 * T, sc.loads)
 
-
+    # 5. 
     def test_zero_energy_seed_is_optimal(self):
         # Check that the optimal selection is simply the seed 
         sc = scenario_zero_energy_seed()
@@ -137,6 +141,7 @@ class TestImbalanceMinimization:
         assert res['imbalance'] == pytest.approx(0.0, abs=1e-6)
 
 
+    # 6. 
     def test_all_heating_selects_smallest(self):
         # Check that the smallest load profile is chosen amongst increasing load profiles
         sc = scenario_all_heating(n=6, seed_idx=2, k_min=3)
@@ -145,6 +150,7 @@ class TestImbalanceMinimization:
         assert sorted(res['selected']) == [0, 1, 2]
 
 
+    # 7. 
     def test_perfect_cancellation_picks_the_complement(self):
         sc = scenario_perfect_cancellation()
         res = solve_scenario(sc, weight_peak=0.0, weight_net=1.0, weight_distance=0.0)
@@ -153,6 +159,7 @@ class TestImbalanceMinimization:
         assert res["imbalance"] == pytest.approx(0.0, abs=1e-6)
 
 
+    # 8. 
     def test_imbalance_uses_absolute_value(self):
         # Check that the MILP uses absolute value and doesn't try to find the absolute minimum
         T = 6
@@ -164,6 +171,7 @@ class TestImbalanceMinimization:
 
 
 # ---- invariance / symmetry ----
+    # 9. 
     @pytest.mark.parametrize('sc', RANDOM, ids=by_name)
     def test_sign_flip_invariance(self, sc):
         # Check that having a positive or negative load does not affect the overall net load
@@ -173,6 +181,7 @@ class TestImbalanceMinimization:
         assert res["imbalance"] == approx_imbalance(expected, sc.loads)
 
 
+    # 10.
     @pytest.mark.parametrize("sc", RANDOM, ids=by_name)
     @pytest.mark.parametrize("factor", [0.01, 100.0])
     def test_scale_invariance(self, sc, factor):
@@ -185,6 +194,7 @@ class TestImbalanceMinimization:
 
 
 # ---- k_min behavior ----
+    # 11. 
     def test_optimal_peak_is_non_decreasing_in_k_min(self):
         # Check that raising k_min only shrinks the feasible set, so the best peak can never improve
         loads = random_loads(7, T=24, seed=11)
@@ -197,6 +207,8 @@ class TestImbalanceMinimization:
         for earlier, later in zip(peaks, peaks[1:]):
             assert later >= earlier - 1e3
 
+
+    # 12. 
     def test_k_min_equals_n_imbalance_is_whole_set_total(self):
         # Check that all profiles are included when k_min is maxed out
         sc = scenario_random(n=6, seed=5, seed_idx=3)

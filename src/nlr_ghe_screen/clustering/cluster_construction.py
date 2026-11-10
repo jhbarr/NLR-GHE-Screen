@@ -166,7 +166,7 @@ PRIM_OCC_RENAME = {
 def _norm(s: pd.Series) -> pd.Series:
     return s.astype(str).str.strip()
 
-def build_clusters(
+def find_and_filter_nearby_buildings(
     seed_centroids: gpd.GeoDataFrame,
     building_data: gpd.GeoDataFrame,
     G: nx.MultiDiGraph = None,

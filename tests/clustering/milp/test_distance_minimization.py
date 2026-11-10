@@ -124,6 +124,7 @@ class TestDistanceMinimization:
     """
 
 # ---- core correctness ----
+    # 1. 
     @pytest.mark.parametrize("seed_rank", ["nearest", "middle", "farthest"])
     @pytest.mark.parametrize("k_min", [1, 3, 6, 12])
     def test_selects_seed_plus_nearest_buildings(self, seed_rank, k_min):
@@ -136,7 +137,7 @@ class TestDistanceMinimization:
             min_total_distance(sc.distances, sc.seed_idx, k_min), sc.distances
         )
 
-
+    # 2. 
     @pytest.mark.parametrize("sc", ALL_SCENARIOS, ids=by_name)
     @pytest.mark.parametrize("w_dist", [1.0, 0.4])
     def test_total_distances_matches_brute_force(self, sc, w_dist):
@@ -149,6 +150,7 @@ class TestDistanceMinimization:
         assert returned == pytest.approx(best, rel=1e-3, abs=1e-5)
 
 
+    # 3. 
     @pytest.mark.parametrize("sc", ALL_SCENARIOS, ids=by_name)
     def test_reported_metrics_are_consistent(self, sc):
         # Check that all of the metrics from the MILP are correct
@@ -166,6 +168,7 @@ class TestDistanceMinimization:
 
 
 # ---- distance weight ----
+    # 4. 
     @pytest.mark.parametrize("w_dist", [1.0, 0.5, 0.1, 0.01])
     def test_objective_scales_linearly_with_distance_weight(self, w_dist):
         # Check that the objective result scales with the weight of the distance factor
@@ -177,6 +180,7 @@ class TestDistanceMinimization:
         assert res['objective'] == pytest.approx(expected, rel=1e-3, abs=1e-5)
 
 
+    # 5. 
     @pytest.mark.parametrize("w_dist", [1.0, 0.1, 0.01])
     def test_selection_does_not_depend_on_distance_weight(self, w_dist):
         # Check that in the absence of other objective weights, the distance weight is negligible, 
@@ -187,6 +191,7 @@ class TestDistanceMinimization:
 
 
 # ---- loads must not influence cluster ----
+    # 6. 
     @pytest.mark.parametrize("variant", list(LOAD_VARIANTS))
     def test_loads_are_irrelevant_when_only_distance_counts(self, variant):
         # Check that the MILP decision is not dependent on the profiles 
@@ -199,7 +204,7 @@ class TestDistanceMinimization:
 
         assert sorted(res["selected"]) == nearest_k_cluster(d, seed_idx, 4)
 
-
+    # 7. 
     def test_ignores_a_far_away_perfect_partner(self):
         # Check that the perfect complement is ignored for the much closer building
         sc = scenario_perfect_cancellation()
@@ -211,6 +216,7 @@ class TestDistanceMinimization:
 
 
 # ---- distance patterns ----
+    # 8. 
     def test_optimal_peak_is_non_decreasing_in_k_min(self):
         # Check that raising k_min only shrinks the feasible set, so the best peak can never improve
         loads = random_loads(7, T=24, seed=11)
