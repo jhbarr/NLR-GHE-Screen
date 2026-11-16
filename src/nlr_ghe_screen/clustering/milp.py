@@ -148,4 +148,6 @@ def solve_cluster(
         "peak": float(np.abs(NET).max()),
         "imbalance": float(abs(NET.sum())),
         "total_distance": float(d[selected].sum()),
+        'weight_peak': weight_peak,
+        'weight_net': weight_net,
     }

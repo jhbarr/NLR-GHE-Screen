@@ -214,8 +214,10 @@ class TestWeightedObjective:
         # Pareto Frontier
         L = THREE_WAY.loads
         lam_12 = crossover_ratio(L, [0, 1], [0, 2])
+        lam_13 = crossover_ratio(L, [0, 1], [0, 3])
         lam_23 = crossover_ratio(L, [0, 2], [0, 3])
         assert lam_12 < lam_23   # precondition: the middle point is genuinely on the frontier
+        assert lam_13 < lam_23
     
         lams = [lam_12 / 2, np.sqrt(lam_12 * lam_23), lam_23 * 2]
         expected = [[0, 1], [0, 2], [0, 3]]
