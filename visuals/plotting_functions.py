@@ -11,7 +11,10 @@ import geopandas as gpd
 def plot_timeseries_loads(
         building_loads: list[float],
         building_types: list[str],
-        title: str
+        title: str,
+        x_axis: str,
+        y_axis: str,
+        show_legend: bool = False
 ):
     fig, ax = plt.subplots(figsize=(12, 5))
     colors = plt.cm.tab10.colors  
@@ -20,15 +23,16 @@ def plot_timeseries_loads(
             range(len(load)),
             load,
             color=colors[i % len(colors)],
-            # label=type
+            label=type
         )
 
-    ax.set_xlabel("Time")
-    ax.set_ylabel("Average energy (kWh)")
-    ax.set_title(f"Energy Usage")
-    # ax.legend(title=None)
+    ax.set_xlabel(x_axis)
+    ax.set_ylabel(y_axis)
+    ax.set_title(title)
 
-    # plt.legend()
+    if show_legend:
+        ax.legend(loc="center left", bbox_to_anchor=(1.01, 0.5), borderaxespad=0)
+        plt.tight_layout()
     plt.show()
 
 

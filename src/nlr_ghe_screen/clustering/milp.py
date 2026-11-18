@@ -1,6 +1,9 @@
 import numpy as np
 import cplex
 
+# ---------------------------------------------------------------------------
+# MILP Solver
+# ---------------------------------------------------------------------------
 
 def solve_cluster(
         loads: list[list[float]],
@@ -151,3 +154,50 @@ def solve_cluster(
         'weight_peak': weight_peak,
         'weight_net': weight_net,
     }
+
+
+def generate_milp_solution_set(
+        building_loads: list[list[float]],
+        building_distances: list[float],
+        k_min: int,
+        seed_idx: int = 0
+):
+    """Generates a list of all cluster solutions from the MILP
+
+    This function walks all combinations of peak / imbalance cost objective weights and returns a set of 
+    MILP cluster selection decisions. These results can be used to analyze the tradeoffs between the different
+    cost components.
+
+    Args:
+        building_loads (list[list[float]]): A list of building load profile curves
+        building_distances (list[float]): A list containing the distance between each building and the cluster centroid
+        seed_idx (int): The building that must be included in each MILP cluster decision
+        k_min (int): The minimum number of buildings that must be included in each MILP cluster decision
+        
+    Returns:
+        list(dict): A list of the unique MILP decisions
+        list(float, float): A list of the unique peak, imbalance values from the MILP decisions
+    """
+    solution_set = []
+    pareto_points = set()
+
+    for weight_peak, weight_net in [(i, (1 - i)) for i in np.arange(0, 1, 0.1)]:
+        res = solve_cluster(
+            loads=building_loads,
+            distances=building_distances,
+            k_min=k_min,
+            seed_idx=seed_idx,
+            weight_peak=weight_peak,
+            weight_net=weight_net,
+            # weight_distance=0.0
+        )
+
+        peak = res['peak']
+        imbalance = res['imbalance']
+
+        if (peak, imbalance) not in pareto_points:
+            solution_set.append(res)
+            pareto_points.add((peak, imbalance))
+
+    pareto_points = sorted(list(pareto_points), key=lambda x: x[1])
+    return solution_set, pareto_points

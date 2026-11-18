@@ -1,5 +1,6 @@
 import pandas as pd
 from pathlib import Path
+import numpy as np
 
 from building_energy_profiles.composite import pull_sized_time_series
 
@@ -26,7 +27,8 @@ def get_building_load_profiles(
         building_sizes: list[int],
         building_sources: list[str],
         state: str,
-        counties: str | list[str] = 'All'
+        counties: str | list[str] = 'All',
+        downsample: bool = False
 ):
     """Downloads and returns representative load profiles for the specified buildings
 
@@ -43,6 +45,7 @@ def get_building_load_profiles(
         state (str): The US state abbreviation fot the state the building data should come from
         counties (str | list[str]): A name or list of names of the counties within the state the building data should come from
             Defaults to 'All'
+        downsample (bool): Whether or not to downsample the timeseries resolution to single day increments
     
     Returns:
         list[pd.DataFrame]: A list of dataframes with the net load curves of each building 
@@ -72,6 +75,7 @@ def get_building_load_profiles(
             continue
 
         df = df.set_index('timestamp')
+        df.attrs['bldg_type'] = type
         if source == 'restock':
             df = df.rename(columns=RESTOCK_RENAME)
         else:
@@ -79,12 +83,49 @@ def get_building_load_profiles(
 
         heating_cop = 3
         cooling_cop = 4.5
-
         df['net_load'] = (df['heating_load'] - (df['heating_load'] / heating_cop)) - (df['cooling_load'] + (df['cooling_load'] / cooling_cop))
         # df['net_heating'] = df['net_load'].clip(lower=0)
         # df['net_cooling'] = (-1 * df['net_load']).clip(lower=0)
 
-        df.attrs['bldg_type'] = type
+        if downsample:
+            df = df.resample('D').mean()
+
         frames.append(df[['net_load', 'heating_load', 'cooling_load']])
 
     return frames
+
+
+
+# ---------------------------------------------------------------------------
+# Building Load Normalization
+# ---------------------------------------------------------------------------
+
+def normalize_building_load_profiles(
+        solution_set: list[dict],
+        building_sizes: list[float]
+):
+    """Normalize a load profile curve based on the size of each of the buildings that contribute to the curve
+    
+    This function is used to post-process net building load profile curves to normalize them. This function takes in
+    the buildings loads and the respective buildings sizes and normalizes them based on the total square footage of 
+    each of the buildings that contribute to the net load curve. 
+
+    Args:
+        building_loads (list[dict]): A list of dictionaries containing each unique MILP cluster decision result
+        building_sizes (list[float]): A list of sizes for each individual building in the possible cluster set 
+    
+    Returns:
+        list[list[floats]]: A list of the normalized net profile curves
+    """
+    normalized_loads = []
+
+    for i, solution in enumerate(solution_set):
+        selected_buildings = solution['selected']
+        net_load = solution['net_curve']
+
+        size_norm = sum([building_sizes[b] for b in selected_buildings])
+        normalized_load = [c / size_norm for c in net_load]
+
+        normalized_loads.append(normalized_load)
+
+    return normalized_loads
