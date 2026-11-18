@@ -11,3 +11,4 @@ Reference guide for the different data sources utilized in the GHE Screening pro
     esa_worldcover
     hydrolakes
     ornl_structures
+    nlr_databases
