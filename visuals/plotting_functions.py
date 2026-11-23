@@ -3,6 +3,8 @@ from shapely.geometry import LineString, Point
 import folium
 import networkx as nx
 import geopandas as gpd
+import itertools
+import numpy as np
 
 # ---------------------------------------------------------------------------
 # MILP Plotting Functions
@@ -160,3 +162,95 @@ def plot_network_graph(
 
     folium.LayerControl().add_to(m)
     return m
+
+
+
+# ---------------------------------------------------------------------------
+# Pareto Frontier Plotting Functions
+# ---------------------------------------------------------------------------
+
+def generate_pareto_combinations(
+        building_loads: list[list[float]],
+        building_sizes: list[float],
+        seed_idx: int,
+        k_min: int,
+):
+    other_loads = [i for i in range(len(building_loads)) if i != seed_idx]
+
+    # Get the objective cost for every combination of clusters 
+    results = []
+    for weight_peak, weight_imbalance in [(i, 1 - i) for i in np.arange(0, 1, 0.1)]:
+        for r in range(k_min - 1, len(other_loads) + 1):
+            for combo in itertools.combinations(other_loads, r):
+                sel = [seed_idx, *combo]
+
+                L = np.asarray(building_loads, dtype=float)
+                A = np.asarray(building_sizes, dtype=float)
+                A_NORM = A[sel].sum()
+
+                net_curve = L[sel].sum(axis=0)
+                norm_curve = net_curve / A_NORM
+                peak_norm = float(np.abs(norm_curve).max())
+                imbalance_norm = float(abs(norm_curve.sum()))
+
+                numerator = (
+                    weight_peak * float(np.abs(net_curve).max())
+                    + weight_imbalance * float(abs(net_curve.sum()))
+                )
+                denominator = A_NORM
+
+                scale_factor = 100
+                results.append((
+                    peak_norm * scale_factor, 
+                    imbalance_norm * scale_factor, 
+                    (numerator / denominator) * scale_factor
+                ))
+        
+    return results
+
+def plot_pareto_fontier(
+        building_loads: list[list[float]],
+        building_sizes: list[float],
+        seed_idx: int,
+        k_min: int,
+):
+    results = generate_pareto_combinations(building_loads, building_sizes, seed_idx, k_min)
+    x, y, c = (np.array(v, dtype=float) for v in zip(*results))
+
+    def pareto_mask(x, y):
+        """True for points not dominated by any other (minimizing both x and y)."""
+        mask = np.ones(len(x), dtype=bool)
+        for i in range(len(x)):
+            dominated = (x <= x[i]) & (y <= y[i]) & ((x < x[i]) | (y < y[i]))
+            if dominated.any():
+                mask[i] = False
+        return mask
+
+    mask = pareto_mask(x, y)
+
+    # Frontier points sorted by x so the line connects properly
+    order = np.argsort(x[mask])
+    fx, fy = x[mask][order], y[mask][order]
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    # All points, colored by third column
+    order_c = np.argsort(c)  # draw high values last so they aren't buried
+    sc = ax.scatter(x[order_c], y[order_c], c=c[order_c], cmap="viridis",
+                s=15, alpha=1.0, edgecolor="none")
+
+    # Pareto frontier as a step line, with the frontier points outlined
+    ax.step(fx, fy, where="post", color="red", linewidth=1.5, label="Pareto frontier")
+    ax.scatter(fx, fy, facecolors="none", edgecolors="red", s=140, linewidth=1.5)
+
+    cbar = fig.colorbar(sc, ax=ax)
+    cbar.set_label("Cost Objective Value")
+
+    ax.set_xlabel("Peak (Normalized)")
+    ax.set_ylabel("Energy Imbalance (Normalized) ")
+    ax.set_title("Pareto Frontier")
+    ax.legend()
+    ax.grid(alpha=0.3)
+
+    plt.tight_layout()
+    plt.show()
