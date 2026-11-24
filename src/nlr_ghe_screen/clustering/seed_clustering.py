@@ -165,7 +165,6 @@ def find_seed_centroids_single(
 
     This funciton is used to gather point geometries that reprepsent each individual GHE / waste heat source location.
     This way, each of those individual locations can act as the seed for a thermal network cluster. 
-
     *Note* - The function expects the GHE locations to be in a projected UTM CRS
 
     Args:

@@ -94,6 +94,9 @@ def get_ornl_footprints(
          
     Returns:
         geopandas.GeoDataframe: A dataframe containing all of the building footprint information 
+    
+    Raises:
+        ORNLQuryError: If there is an error executing the ORNL query call
     """
     print("\n---------------------------")
     print("Retrieving ORNL Structure Data")
@@ -226,12 +229,18 @@ def get_overture_footprints(
     
     Returns:
         geopandas.GeoDataframe: A geodataframe with all of the building data from the provided bounding box
+    
+    Raises:
+        OvertureQueryError: If there is an error executing the Overture query call
     """
     print("\n---------------------------")
     print("Retrieving Overture Maps Data")
 
     south, west, north, east = bbox
-    gdf = geodataframe("building", bbox=(west, south, east, north))
+    try:
+        gdf = geodataframe("building", bbox=(west, south, east, north))
+    except Exception as e:
+        raise OvertureQueryError(f"ORNL Request failed: {e}") from e
 
     desired_attributes = [
         'height',

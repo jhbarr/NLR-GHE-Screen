@@ -199,7 +199,7 @@ def generate_pareto_combinations(
                 )
                 denominator = A_NORM
 
-                scale_factor = 100
+                scale_factor = 1000
                 results.append((
                     peak_norm * scale_factor, 
                     imbalance_norm * scale_factor, 

@@ -23,6 +23,7 @@ RESTOCK_RENAME = {
 # ---------------------------------------------------------------------------
 
 def get_building_load_profiles(
+        building_ids: list[int],
         building_types: list[str],
         building_sizes: list[int],
         building_sources: list[str],
@@ -56,7 +57,7 @@ def get_building_load_profiles(
     metadata_dir.mkdir(parents=True, exist_ok=True)
 
     frames = []
-    for type, size, source in zip(building_types, building_sizes, building_sources):
+    for type, size, source, id in zip(building_types, building_sizes, building_sources, building_ids):
         try:
             df = pull_sized_time_series(
                 building_type=type,
@@ -76,6 +77,7 @@ def get_building_load_profiles(
 
         df = df.set_index('timestamp')
         df.attrs['bldg_type'] = type
+        df.attrs['bldg_id'] = id
         if source == 'restock':
             df = df.rename(columns=RESTOCK_RENAME)
         else:
