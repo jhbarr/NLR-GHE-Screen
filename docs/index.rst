@@ -20,7 +20,7 @@ Introduction to the program here
 
    features/ghe_features/index
    features/cross_validation_features/index
-   features/cluster_features/index
+   features/clustering_features/index
    visuals/index
 
 .. toctree::

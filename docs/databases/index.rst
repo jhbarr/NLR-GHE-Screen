@@ -1,6 +1,7 @@
 Database Reference
 ==================
-Reference guide for the different data sources utilized in the GHE Screening program processes
+Reference guide for the different data sources utilized in the GHE Screening and building clustering
+processes
 
 .. toctree::
     :maxdepth: 1
